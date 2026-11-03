@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400">
+  <defs>
+    <linearGradient id="sme-desktop" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#065F46"/>
+      <stop offset="1" stop-color="#15803D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#sme-desktop)"/>
+  <rect x="80" y="200" width="36" height="100" rx="8" fill="#ffffff" opacity="0.85"/>
+  <rect x="132" y="150" width="36" height="150" rx="8" fill="#ffffff" opacity="0.92"/>
+  <rect x="184" y="100" width="36" height="200" rx="8" fill="#F8FAFC"/>
+  <path d="M194 72l24-34 24 34h-16v28h-16V72z" fill="#ffffff"/>
+</svg>

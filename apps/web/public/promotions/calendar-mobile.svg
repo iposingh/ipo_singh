@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="520" viewBox="0 0 780 520">
+  <defs>
+    <linearGradient id="calendar-mobile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16A34A"/>
+      <stop offset="1" stop-color="#166534"/>
+    </linearGradient>
+  </defs>
+  <rect width="780" height="520" fill="url(#calendar-mobile)"/>
+  <rect x="470" y="150" width="220" height="280" rx="16" fill="#F8FAFC"/>
+  <rect x="470" y="150" width="220" height="56" rx="16" fill="#166534"/>
+  <rect x="470" y="188" width="220" height="18" fill="#166534"/>
+  <circle cx="524" cy="258" r="12" fill="#16A34A"/>
+  <circle cx="580" cy="258" r="12" fill="#16A34A" opacity="0.45"/>
+  <circle cx="636" cy="258" r="12" fill="#16A34A" opacity="0.45"/>
+  <circle cx="524" cy="318" r="12" fill="#16A34A" opacity="0.45"/>
+  <circle cx="580" cy="318" r="12" fill="#16A34A"/>
+  <circle cx="636" cy="318" r="12" fill="#16A34A" opacity="0.45"/>
+</svg>

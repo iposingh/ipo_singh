@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="520" viewBox="0 0 780 520">
+  <defs>
+    <linearGradient id="sme-mobile" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#065F46"/>
+      <stop offset="1" stop-color="#15803D"/>
+    </linearGradient>
+  </defs>
+  <rect width="780" height="520" fill="url(#sme-mobile)"/>
+  <rect x="80" y="280" width="44" height="120" rx="10" fill="#ffffff" opacity="0.85"/>
+  <rect x="144" y="220" width="44" height="180" rx="10" fill="#ffffff" opacity="0.92"/>
+  <rect x="208" y="160" width="44" height="240" rx="10" fill="#F8FAFC"/>
+  <path d="M218 124l26-38 26 38h-16v32h-20v-32z" fill="#ffffff"/>
+</svg>

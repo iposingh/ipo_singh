@@ -1,0 +1,41 @@
+{
+  "name": "@ipo-singh/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "build": "esbuild src/index.ts src/worker.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist --sourcemap --external:express --external:cors --external:helmet --external:zod --external:mongoose --external:ioredis",
+    "start": "node dist/index.js",
+    "start:worker": "node dist/worker.js",
+    "dev:worker": "node --watch --experimental-strip-types src/worker.ts",
+    "sync:once": "SYNC_MODE=once node --experimental-strip-types src/worker.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --experimental-strip-types --test --test-reporter spec"
+  },
+  "dependencies": {
+    "@ipo-singh/contracts": "0.1.0",
+    "@ipo-singh/core": "0.1.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.11.1",
+    "mongoose": "^8.19.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24",
+    "esbuild": "^0.25.10",
+    "eslint": "^9",
+    "mongodb-memory-server": "^10.2.3",
+    "typescript": "^5",
+    "typescript-eslint": "^8.46.2"
+  }
+}

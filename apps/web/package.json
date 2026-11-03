@@ -1,0 +1,40 @@
+{
+  "name": "@ipo-singh/web",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/navigation/*.test.ts lib/seo/*.test.ts lib/auth/*.test.ts lib/watchlist/*.test.ts lib/notifications/*.test.ts lib/admin/*.test.ts features/calendar/*.test.ts features/compare/*.test.ts features/ipos/*.test.ts features/ipo-details/*.test.ts features/search/*.test.ts features/promotions/*.test.ts features/auth/*.test.ts features/allotment/*.test.ts"
+  },
+  "dependencies": {
+    "@ipo-singh/contracts": "0.1.0",
+    "@ipo-singh/core": "0.1.0",
+    "@ipo-singh/design-tokens": "0.1.0",
+    "@radix-ui/react-dialog": "^1.3.1",
+    "@radix-ui/react-select": "^2.4.1",
+    "@radix-ui/react-tabs": "^1.2.1",
+    "@radix-ui/react-tooltip": "^1.4.1",
+    "next": "16.4.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

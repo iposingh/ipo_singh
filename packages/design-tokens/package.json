@@ -1,0 +1,15 @@
+{
+  "name": "@ipo-singh/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme.css": "./theme.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --incremental false",
+    "emit-css": "node --experimental-strip-types scripts/emit-theme-css.ts",
+    "test": "node --experimental-strip-types --test src/theme-css.test.ts"
+  }
+}

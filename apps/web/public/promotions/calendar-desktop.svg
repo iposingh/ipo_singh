@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400">
+  <defs>
+    <linearGradient id="calendar-desktop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16A34A"/>
+      <stop offset="1" stop-color="#166534"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#calendar-desktop)"/>
+  <rect x="900" y="70" width="200" height="260" rx="16" fill="#F8FAFC"/>
+  <rect x="900" y="70" width="200" height="52" rx="16" fill="#166534"/>
+  <rect x="900" y="106" width="200" height="16" fill="#166534"/>
+  <circle cx="948" cy="168" r="10" fill="#16A34A"/>
+  <circle cx="1000" cy="168" r="10" fill="#16A34A" opacity="0.45"/>
+  <circle cx="1052" cy="168" r="10" fill="#16A34A" opacity="0.45"/>
+  <circle cx="948" cy="220" r="10" fill="#16A34A" opacity="0.45"/>
+  <circle cx="1000" cy="220" r="10" fill="#16A34A"/>
+  <circle cx="1052" cy="220" r="10" fill="#16A34A" opacity="0.45"/>
+</svg>

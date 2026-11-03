@@ -1,0 +1,127 @@
+/* Generated from packages/design-tokens/src. Do not edit by hand. */
+:root {
+  --ds-background: #F8FAFC;
+  --ds-surface: #FFFFFF;
+  --ds-foreground: #0F172A;
+  --ds-muted: #64748B;
+  --ds-border: #E2E8F0;
+  --ds-primary: #16A34A;
+  --ds-primary-solid: #166534;
+  --ds-primary-solid-hover: #15803D;
+  --ds-primary-solid-active: #065F46;
+  --ds-primary-foreground: #FFFFFF;
+  --ds-bright: #22C55E;
+  --ds-deep: #065F46;
+  --ds-link: #065F46;
+  --ds-positive: #16A34A;
+  --ds-positive-text: #166534;
+  --ds-negative: #DC2626;
+  --ds-negative-text: #B91C1C;
+  --ds-negative-solid: #DC2626;
+  --ds-negative-solid-hover: #B91C1C;
+  --ds-negative-foreground: #FFFFFF;
+  --ds-warning: #D97706;
+  --ds-warning-text: #92400E;
+  --ds-ring: #166534;
+  --ds-disabled: #E2E8F0;
+  --ds-disabled-foreground: #64748B;
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-lg: 16px;
+  --ds-radius-xl: 20px;
+  --ds-radius-full: 9999px;
+  --ds-duration-fast: 120ms;
+  --ds-duration-normal: 180ms;
+  --ds-duration-slow: 240ms;
+  --ds-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ds-shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 12px 32px rgb(15 23 42 / 0.05);
+}
+
+[data-color-scheme="light"] {
+  --ds-background: #F8FAFC;
+  --ds-surface: #FFFFFF;
+  --ds-foreground: #0F172A;
+  --ds-muted: #64748B;
+  --ds-border: #E2E8F0;
+  --ds-primary: #16A34A;
+  --ds-primary-solid: #166534;
+  --ds-primary-solid-hover: #15803D;
+  --ds-primary-solid-active: #065F46;
+  --ds-primary-foreground: #FFFFFF;
+  --ds-bright: #22C55E;
+  --ds-deep: #065F46;
+  --ds-link: #065F46;
+  --ds-positive: #16A34A;
+  --ds-positive-text: #166534;
+  --ds-negative: #DC2626;
+  --ds-negative-text: #B91C1C;
+  --ds-negative-solid: #DC2626;
+  --ds-negative-solid-hover: #B91C1C;
+  --ds-negative-foreground: #FFFFFF;
+  --ds-warning: #D97706;
+  --ds-warning-text: #92400E;
+  --ds-ring: #166534;
+  --ds-disabled: #E2E8F0;
+  --ds-disabled-foreground: #64748B;
+  --ds-shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 12px 32px rgb(15 23 42 / 0.05);
+}
+
+[data-color-scheme="dark"] {
+  --ds-background: #080F1A;
+  --ds-surface: #142235;
+  --ds-foreground: #F8FAFC;
+  --ds-muted: #94A3B8;
+  --ds-border: #334155;
+  --ds-primary: #22C55E;
+  --ds-primary-solid: #22C55E;
+  --ds-primary-solid-hover: #4ADE80;
+  --ds-primary-solid-active: #16A34A;
+  --ds-primary-foreground: #080F1A;
+  --ds-bright: #22C55E;
+  --ds-deep: #065F46;
+  --ds-link: #22C55E;
+  --ds-positive: #22C55E;
+  --ds-positive-text: #22C55E;
+  --ds-negative: #DC2626;
+  --ds-negative-text: #F87171;
+  --ds-negative-solid: #DC2626;
+  --ds-negative-solid-hover: #B91C1C;
+  --ds-negative-foreground: #FFFFFF;
+  --ds-warning: #D97706;
+  --ds-warning-text: #D97706;
+  --ds-ring: #22C55E;
+  --ds-disabled: #1E293B;
+  --ds-disabled-foreground: #64748B;
+  --ds-shadow-card: 0 1px 2px rgb(0 0 0 / 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-color-scheme="light"]) {
+  --ds-background: #080F1A;
+  --ds-surface: #142235;
+  --ds-foreground: #F8FAFC;
+  --ds-muted: #94A3B8;
+  --ds-border: #334155;
+  --ds-primary: #22C55E;
+  --ds-primary-solid: #22C55E;
+  --ds-primary-solid-hover: #4ADE80;
+  --ds-primary-solid-active: #16A34A;
+  --ds-primary-foreground: #080F1A;
+  --ds-bright: #22C55E;
+  --ds-deep: #065F46;
+  --ds-link: #22C55E;
+  --ds-positive: #22C55E;
+  --ds-positive-text: #22C55E;
+  --ds-negative: #DC2626;
+  --ds-negative-text: #F87171;
+  --ds-negative-solid: #DC2626;
+  --ds-negative-solid-hover: #B91C1C;
+  --ds-negative-foreground: #FFFFFF;
+  --ds-warning: #D97706;
+  --ds-warning-text: #D97706;
+  --ds-ring: #22C55E;
+  --ds-disabled: #1E293B;
+  --ds-disabled-foreground: #64748B;
+  --ds-shadow-card: 0 1px 2px rgb(0 0 0 / 0.45);
+}
+}

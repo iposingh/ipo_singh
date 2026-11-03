@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import "@ipo-singh/design-tokens/theme.css";
+
+@custom-variant dark (&:where([data-color-scheme="dark"], [data-color-scheme="dark"] *));
+
+@theme inline {
+  --color-background: var(--ds-background);
+  --color-foreground: var(--ds-foreground);
+  --color-surface: var(--ds-surface);
+  --color-muted: var(--ds-muted);
+  --color-border: var(--ds-border);
+  --color-primary: var(--ds-primary);
+  --color-primary-solid: var(--ds-primary-solid);
+  --color-primary-solid-hover: var(--ds-primary-solid-hover);
+  --color-primary-solid-active: var(--ds-primary-solid-active);
+  --color-primary-foreground: var(--ds-primary-foreground);
+  --color-bright: var(--ds-bright);
+  --color-deep: var(--ds-deep);
+  --color-link: var(--ds-link);
+  --color-positive: var(--ds-positive);
+  --color-positive-text: var(--ds-positive-text);
+  --color-negative: var(--ds-negative);
+  --color-negative-text: var(--ds-negative-text);
+  --color-negative-solid: var(--ds-negative-solid);
+  --color-negative-solid-hover: var(--ds-negative-solid-hover);
+  --color-negative-foreground: var(--ds-negative-foreground);
+  --color-warning: var(--ds-warning);
+  --color-warning-text: var(--ds-warning-text);
+  --color-ring: var(--ds-ring);
+  --color-disabled: var(--ds-disabled);
+  --color-disabled-foreground: var(--ds-disabled-foreground);
+  --font-sans: var(--font-geist-sans), Geist, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+  --radius-control: var(--ds-radius-md);
+  --radius-panel: var(--ds-radius-lg);
+  --shadow-card: var(--ds-shadow-card);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ds-ring);
+  outline-offset: 2px;
+}
+
+html[data-theme="light"] [data-theme-choice="light"],
+html[data-theme="dark"] [data-theme-choice="dark"],
+html[data-theme="system"] [data-theme-choice="system"],
+html:not([data-theme]) [data-theme-choice="system"] {
+  background: var(--ds-surface);
+  color: var(--ds-foreground);
+  box-shadow: var(--ds-shadow-card);
+}
+
+body {
+  background: var(--ds-background);
+  color: var(--ds-foreground);
+  font-family: var(--font-sans), Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root {
+  --app-promo-bar: 3.25rem;
+}
+
+html[data-app-promo="dismissed"] {
+  --app-promo-bar: 0px;
+}
+
+html[data-app-promo="dismissed"] .app-promo-chrome {
+  display: none;
+}

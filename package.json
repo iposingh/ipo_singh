@@ -1,26 +1,29 @@
 {
-  "name": "ipo_singh",
+  "name": "ipo-singh",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+  "engines": {
+    "node": "24.x"
   },
-  "dependencies": {
-    "next": "16.4.2",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c auto \"npm run dev -w @ipo-singh/web\" \"npm run dev -w @ipo-singh/api\"",
+    "dev:web": "npm run dev -w @ipo-singh/web",
+    "dev:api": "npm run dev -w @ipo-singh/api",
+    "dev:mobile": "npm run start -w @ipo-singh/mobile",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm run start -w @ipo-singh/web",
+    "start:api": "npm run start -w @ipo-singh/api",
+    "start:worker": "npm run start:worker -w @ipo-singh/api",
+    "sync:once": "npm run sync:once -w @ipo-singh/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "concurrently": "^9.2.1"
   }
 }
