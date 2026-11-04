@@ -20,10 +20,10 @@ describe("backend foundation", () => {
     assert.equal(process.version.startsWith("v24."), true);
     assert.equal(root.engines.node, "24.x");
     assert.equal(api.engines.node, "24.x");
-    for (const name of ["dev", "dev:api", "build", "start:api", "start:worker", "sync:once", "lint", "typecheck", "test"]) {
+    for (const name of ["dev", "dev:api", "build", "start:api", "start:worker", "start:cron", "sync:once", "lint", "typecheck", "test"]) {
       assert.equal(typeof root.scripts[name], "string");
     }
-    for (const name of ["dev", "build", "start", "start:worker", "sync:once", "lint", "typecheck", "test"]) {
+    for (const name of ["dev", "build", "start", "start:worker", "start:cron", "sync:once", "lint", "typecheck", "test"]) {
       assert.equal(typeof api.scripts[name], "string");
     }
   });

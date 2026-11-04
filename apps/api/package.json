@@ -8,10 +8,12 @@
   },
   "scripts": {
     "dev": "node --watch --experimental-strip-types src/index.ts",
-    "build": "esbuild src/index.ts src/worker.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist --sourcemap --external:express --external:cors --external:helmet --external:zod --external:mongoose --external:ioredis",
+    "build": "esbuild src/index.ts src/worker.ts src/cron.ts --bundle --platform=node --format=esm --target=node24 --outdir=dist --sourcemap --external:express --external:cors --external:helmet --external:zod --external:mongoose --external:ioredis",
     "start": "node dist/index.js",
     "start:worker": "node dist/worker.js",
+    "start:cron": "node dist/cron.js",
     "dev:worker": "node --watch --experimental-strip-types src/worker.ts",
+    "dev:cron": "node --experimental-strip-types src/cron.ts",
     "sync:once": "SYNC_MODE=once node --experimental-strip-types src/worker.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit --incremental false",

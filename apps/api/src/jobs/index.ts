@@ -3,7 +3,8 @@ import type { CacheService } from "../cache/service.ts";
 
 /**
  * The API process does not run synchronization.
- * Start `apps/api/src/worker.ts` as its own process. Importing this module does not call IPO Guru.
+ * Production uses the Render Cron one-shot (`apps/api/src/cron.ts` / `npm run start:cron`).
+ * Local development may still run `apps/api/src/worker.ts`. Importing this module does not call IPO Guru.
  */
 export const jobsStatus = "not_configured" as const;
 

@@ -16,7 +16,7 @@ Independently deployable components that exist in this monorepo:
 | --- | --- | --- | --- | --- | --- |
 | Next.js website | `apps/web` | Yes (edge/SSR) | None required (stateless) | Yes | Talks only to IPO Singh API |
 | Node.js API | `apps/api` (`src/index.ts`) | Yes | MongoDB; Redis optional for cache | Yes | Never expose IPO Guru key |
-| Sync + notification worker | `apps/api` (`src/worker.ts`) | Yes (always-on process) | MongoDB + Redis required in staging/prod | No public routes | Separate process from API |
+| Sync + notification Cron | `apps/api` (`src/cron.ts`) | No (Render Cron `*/5 * * * *`) | MongoDB + Redis required in staging/prod | No public routes | Same DB/Redis as API; see `render-cron.md` |
 | MongoDB | Atlas (recommended) | Managed | Yes | Private (IP allowlist / VPC) | Lane-isolated DB names |
 | Redis | Managed Redis | Managed | Ephemeral cache/locks | Private TLS | Key prefix `ipo-singh:{env}:…` |
 | IPO Guru Pro v2 | Upstream HTTPS | Vendor | N/A | Server-only outbound | Quotas; never from clients |
@@ -25,16 +25,16 @@ Independently deployable components that exist in this monorepo:
 
 Scheduled vs continuous:
 
-- **Must run continuously:** website, API, worker (sync ticks, alert evaluation, optional push receipts).
-- **Can be schedule-shaped inside the worker:** catalogue/GMP/subscription/history intervals, allotment verify, retention cleanup, Expo receipt polling — already driven by worker ticks and IST clocks, not by website visits.
-- **Do not** put the worker on a free host that sleeps; free-tier sleep breaks locks, quotas, and freshness.
+- **Must run continuously:** website, API.
+- **Runs on Cron:** catalogue/GMP/subscription/history, allotment verify (kill-switched), alert evaluation, optional push receipts — `npm run start:cron`, IST windows inside the process, Render schedule `*/5 * * * *` UTC. See `render-cron.md`.
+- **Do not** substitute a sleeping free-tier always-on worker; Cron must share production Mongo/Redis with the API.
 
 ```mermaid
 flowchart LR
   users[Users browsers and mobile]
   web[Next.js website]
   api[Node API]
-  worker[Sync and alert worker]
+  cron[Sync and alert Cron Job]
   mongo[(MongoDB Atlas)]
   redis[(Managed Redis)]
   guru[IPO Guru Pro v2]
@@ -45,10 +45,10 @@ flowchart LR
   web --> api
   api --> mongo
   api --> redis
-  worker --> mongo
-  worker --> redis
-  worker --> guru
-  worker --> expo
+  cron --> mongo
+  cron --> redis
+  cron --> guru
+  cron --> expo
 ```
 
 Isolation rules enforced in code:
@@ -68,17 +68,17 @@ Isolation rules enforced in code:
 | --- | --- | --- | --- |
 | Website | Vercel, Netlify, Node host | **Vercel** (or Netlify) for Next.js 16 | SSR/SEO, CDN, HTTPS, low ops; Node 24 compatible build |
 | API | Render, Railway, Fly.io, small VPS | **Render Web Service** or **Railway** always-on | Persistent Node process; set `HOST`/`PORT`; TLS at edge |
-| Worker | Same provider as API, second service | **Separate always-on worker** on Render/Railway | Must not share free-tier sleep with API; same Mongo/Redis |
+| Sync Cron | Same provider as API | **Render Cron Job** (`start:cron`, `*/5 * * * *`) | One-shot passes with Redis locks; same Mongo/Redis as API |
 | MongoDB | Atlas M0/M10, self-host | **MongoDB Atlas** dedicated cluster for prod | Backups, auth, network rules |
 | Redis | Redis Cloud, Upstash, provider addon | **Redis Cloud** or host addon with TLS | Workers need reliable `SET NX` locks; avoid tiny free limits for prod |
 
 Assessment notes (verify current vendor pricing before purchase):
 
-- **Free-tier API/worker sleep:** unsuitable for production workers; cold starts break tick cadence.
-- **Region:** prefer one region close to India users for API + Atlas + Redis (for example South Asia / Singapore — confirm availability).
-- **Cron-only substitutes:** insufficient alone; the repo’s worker is a long-running ticker with distributed locks.
-- **Operational complexity:** keep website on a PaaS and API+worker on one Node host family; avoid multi-cloud for launch.
-- **Scalability path:** single API + single worker → horizontal API replicas behind the same Redis locks → larger Atlas/Redis tiers.
+- **Free-tier API sleep:** unsuitable for production API; Cron is schedule-driven and must still reach always-on Mongo/Redis.
+- **Region:** prefer one region close to India users for API + Atlas + Redis (Singapore recommended for Render Cron).
+- **Cron model:** one Render Cron Job is the production sync path; IST windows and Redis locks live in application code (`docs/render-cron.md`).
+- **Operational complexity:** keep website on a PaaS and API + Cron on Render; avoid multi-cloud for launch.
+- **Scalability path:** single API + single Cron → horizontal API replicas behind the same Redis locks → larger Atlas/Redis tiers.
 
 **Do not** reuse ephemeral tunnels as permanent origins.
 
@@ -198,24 +198,34 @@ Runtime checklist:
 
 ---
 
-## 8. Worker deployment
+## 8. Cron deployment
+
+Production path (Render Cron Job) — details in `render-cron.md`:
 
 ```bash
 npm run build -w @ipo-singh/api
-npm run start:worker -w @ipo-singh/api
+npm run start:cron -w @ipo-singh/api
 ```
 
-Development one-shot (not for production):
+Schedule: `*/5 * * * *` (UTC). IST windows are evaluated inside the process.
+
+Development one-shot manual sync (not for production; requires `SYNC_TOKEN`):
 
 ```bash
 npm run sync:once -w @ipo-singh/api
 ```
 
+Optional local continuous worker (not production):
+
+```bash
+npm run start:worker -w @ipo-singh/api
+```
+
 Requirements:
 
-- Same `MONGODB_URI` lane as the API it feeds.
+- Same `MONGODB_URI` lane as the API it feeds (never `ipo-singh-dev` in production).
 - `REDIS_URL` required for staging and production (`SYNC_ALLOW_PROCESS_LOCAL_LOCK` refused for those lanes).
-- Run **one** primary worker initially; locks prevent duplicate job execution when scaled carefully.
+- Whole-pass + per-resource Redis locks prevent overlapping Cron retries.
 - Kill switches stay off until authorized: `PUSH_DELIVERY_ENABLED`, `ALLOTMENT_BROADCAST_ENABLED`, `ALLOTMENT_VERIFY_ENABLED`.
 - Conservative default polling already favors Standard-class day budgets (see `docs/ipoguru-request-budget.md`). Prefer lengthening `SYNC_GMP_COLLECTION_MS` toward 120 minutes if the paid day budget is tight.
 - Staging and production **must not** share the same IPO Guru API key/day budget if both sync live — use separate keys or keep staging `IPOGURU_ENABLED=false` / mock-off with fixture data.

@@ -70,6 +70,17 @@ export type SyncJobResult = {
   durationMs: number;
 };
 
+/** Optional gates for a one-shot cron pass. Undefined keys default to allowed. */
+export type SyncTaskFilter = {
+  catalog?: boolean;
+  gmpCollection?: boolean;
+  subscriptionCurrent?: boolean;
+  gmpHistory?: boolean;
+  subscriptionHistory?: boolean;
+  ipoDetail?: boolean;
+  issueEnrichment?: boolean;
+};
+
 export type SyncContext = {
   providerKey: ProviderKey;
   gateway: ProviderGateway;
@@ -81,6 +92,8 @@ export type SyncContext = {
   now: () => Date;
   logger: Logger;
   stopped?: () => boolean;
+  /** When set, skips specialized IPO Guru loaders outside the current cron window. */
+  taskFilter?: SyncTaskFilter;
   /** IPO Guru catalogue refresh. Mock per-issue subscription and financial reads stay uncalled. */
   ipoGuruCatalog?: boolean;
   /** One `GET /gmp` collection. Absent unless the IPO Guru client is enabled. */
@@ -100,6 +113,10 @@ export type SyncContext = {
   loadAnchors?: (slug: string) => Promise<unknown>;
   gmpBudget?: { requestsPerDay: number; reservedRequests: number };
 };
+
+function taskAllowed(context: SyncContext, key: keyof SyncTaskFilter): boolean {
+  return context.taskFilter?.[key] !== false;
+}
 
 type RunState = {
   calls: number;
@@ -130,25 +147,35 @@ export async function runSyncTick(context: SyncContext, categories?: readonly Sy
     : (categories ?? (["catalog", "gmp", "subscription", "financial", "history"] as const));
   const state: RunState = { calls: 0, stopForQuota: false };
   const results: SyncJobResult[] = [];
-  if (selected.includes("catalog")) {
+  if (selected.includes("catalog") && taskAllowed(context, "catalog")) {
     results.push(...(await runCatalog(context, state)));
   }
-  if (!state.stopForQuota && !context.stopped?.() && context.loadCurrentGmp) {
+  if (!state.stopForQuota && !context.stopped?.() && context.loadCurrentGmp && taskAllowed(context, "gmpCollection")) {
     results.push(...(await runGmpCollection(context, state)));
   }
-  if (!state.stopForQuota && !context.stopped?.() && context.loadCurrentSubscription) {
+  if (
+    !state.stopForQuota &&
+    !context.stopped?.() &&
+    context.loadCurrentSubscription &&
+    taskAllowed(context, "subscriptionCurrent")
+  ) {
     results.push(...(await runSubscription(context, state, "current")));
   }
-  if (!state.stopForQuota && !context.stopped?.() && context.loadGmpHistory) {
+  if (!state.stopForQuota && !context.stopped?.() && context.loadGmpHistory && taskAllowed(context, "gmpHistory")) {
     results.push(...(await runGmpHistory(context, state)));
   }
-  if (!state.stopForQuota && !context.stopped?.() && context.loadSubscriptionHistory) {
+  if (
+    !state.stopForQuota &&
+    !context.stopped?.() &&
+    context.loadSubscriptionHistory &&
+    taskAllowed(context, "subscriptionHistory")
+  ) {
     results.push(...(await runSubscription(context, state, "history")));
   }
-  if (!state.stopForQuota && !context.stopped?.() && context.loadIpoDetail) {
+  if (!state.stopForQuota && !context.stopped?.() && context.loadIpoDetail && taskAllowed(context, "ipoDetail")) {
     results.push(...(await runIpoDetail(context, state)));
   }
-  if (state.stopForQuota || context.stopped?.()) return results;
+  if (state.stopForQuota || context.stopped?.() || !taskAllowed(context, "issueEnrichment")) return results;
   const ipos = await context.store.ipos.list();
   const runs = await context.store.sync.findByProvider(context.providerKey, context.now());
   const plan = planIssueSync({

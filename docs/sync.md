@@ -2,27 +2,27 @@
 
 The public API reads MongoDB and Redis. It does not call a market-data provider when someone opens the website or a mobile app.
 
-Synchronization runs in a separate worker process. Importing the API, starting `npm run dev`, or opening a page does not start that worker.
+Synchronization runs outside the API process. Importing the API, starting `npm run dev`, or opening a page does not start sync.
 
 ## Production
 
-Run one worker beside the API process:
+Run the API web service plus one Render Cron Job (`docs/render-cron.md`):
 
 ```bash
 npm run build
 npm run start:api
-npm run start:worker
+npm run start:cron
 ```
 
-`npm run start:worker` runs `node apps/api/dist/worker.js`. Give it the same `MONGODB_URI`, `REDIS_URL`, and provider variables as the API. Do not put those secrets in the repository.
+`npm run start:cron` runs `node apps/api/dist/cron.js`. Give Cron the same `MONGODB_URI`, `REDIS_URL`, and provider variables as the API. Do not put those secrets in the repository. Schedule: `*/5 * * * *` UTC; IST windows are evaluated inside the process.
 
-Set `REDIS_URL`. The worker uses Redis for distributed locks and for the shared per-minute and per-day provider quota. Two workers can run; a lock stops them from fetching the same category for the same IPO at the same time. If Redis is unset, the lock is only inside that process, so run a single worker.
+Set `REDIS_URL`. Cron uses Redis for a whole-pass lock, per-resource sync locks, and the shared per-minute and per-day provider quota. Overlapping Cron retries skip when the pass lock is held.
 
-`IPO_DATA_PROVIDER=ipo-guru` leaves the worker idle until `IPOGURU_ENABLED=true`. With both set, each due catalogue tick makes one `GET /ipos?months=0` and upserts those issues. Each due GMP tick makes one `GET /gmp` for open and upcoming issues and matches rows by slug. It does not call `GET /ipos/{slug}/gmp`. GMP history is one `GET /ipos/{slug}/gmp/history` per due issue, capped by the tick budget. A closed, allotment, or listed issue is not fetched again after a successful GMP history response. Current subscription is one `GET /ipos/{slug}/subscription` per due issue. Subscription history is a separate `GET /ipos/{slug}/subscription/history` and is not paired with GMP history. List pages do not request either history. The issue document is one `GET /ipos/{slug}` per due issue, on the financial interval, after those polls and inside the same tick budget. A Free response that omits the company block keeps the last stored narrative. A failed detail read does not clear it. `IPOGURU_ENABLED=true` by itself still allows the protected account probe. Production also rejects `IPO_DATA_PROVIDER=mock`.
+`IPO_DATA_PROVIDER=ipo-guru` leaves Cron idle until `IPOGURU_ENABLED=true`. With both set, each due catalogue pass makes one `GET /ipos?months=0` and upserts those issues. Each due GMP pass makes one `GET /gmp` for open and upcoming issues and matches rows by slug. It does not call `GET /ipos/{slug}/gmp`. GMP history is one `GET /ipos/{slug}/gmp/history` per due issue, capped by the pass budget. A closed, allotment, or listed issue is not fetched again after a successful GMP history response. Current subscription is one `GET /ipos/{slug}/subscription` per due issue. Subscription history is a separate `GET /ipos/{slug}/subscription/history` and is not paired with GMP history. List pages do not request either history. The issue document is one `GET /ipos/{slug}` per due issue, on the financial interval, after those polls and inside the same budget. A Free response that omits the company block keeps the last stored narrative. A failed detail read does not clear it. `IPOGURU_ENABLED=true` by itself still allows the protected account probe. Production also rejects `IPO_DATA_PROVIDER=mock`.
 
-Stop the worker with `SIGTERM` or `SIGINT`. It stops taking new jobs, waits for the current job, then closes MongoDB and Redis.
+Each Cron invocation exits after one bounded pass and closes MongoDB and Redis. The optional local `start:worker` continuous process remains for development only.
 
-The API readiness check stays `jobs: not_configured`. That value means this API process is not the worker.
+The API readiness check stays `jobs: not_configured`. That value means this API process is not the Cron or worker.
 
 ## Schedules
 

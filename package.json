@@ -18,6 +18,7 @@
     "start": "npm run start -w @ipo-singh/web",
     "start:api": "npm run start -w @ipo-singh/api",
     "start:worker": "npm run start:worker -w @ipo-singh/api",
+    "start:cron": "npm run start:cron -w @ipo-singh/api",
     "sync:once": "npm run sync:once -w @ipo-singh/api",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

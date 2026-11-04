@@ -136,7 +136,7 @@ IPO_SINGH_SITE_URL=https://CANONICAL_SITE IPO_SINGH_API_ORIGIN=https://CANONICAL
 
 # Runtime (after host env configured — do not run against production from this prompt)
 npm run start -w @ipo-singh/api
-npm run start:worker -w @ipo-singh/api
+npm run start:cron -w @ipo-singh/api
 npm run start -w @ipo-singh/web
 ```
 
