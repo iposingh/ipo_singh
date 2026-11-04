@@ -42,7 +42,9 @@ export function OverviewSection({ ipo }: { ipo: Ipo | null }) {
             {profile.description ? <p className="max-w-3xl text-sm leading-6 text-muted">{profile.description}</p> : null}
           </>
         ) : (
-          <p className="text-sm text-muted">Company overview is unavailable until a stored details_full profile is present.</p>
+          <p className="text-sm text-muted">
+            Company overview is unavailable until IPO Singh stores a provider details profile for this issue. Missing text is not invented.
+          </p>
         )}
       </section>
       {(profile?.strengths?.length || profile?.risks?.length) ? (

@@ -175,6 +175,8 @@ test("syncPolicyForCronPass shortens catalogue and open subscription without rai
   assert.equal(merged.catalogMs, 30 * 60 * 1000);
   assert.equal(merged.subscription.openMs, 10 * 60 * 1000);
   assert.equal(merged.financial.openMs, 2 * 60 * 60 * 1000);
+  assert.equal(merged.financial.otherMs, 2 * 60 * 60 * 1000);
+  assert.equal(merged.financial.listedMs, 2 * 60 * 60 * 1000);
   assert.equal(merged.gmpCollectionMs, base.gmpCollectionMs);
   assert.ok(merged.gmpCollectionMs >= 60 * 60 * 1000);
 });

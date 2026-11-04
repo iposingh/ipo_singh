@@ -155,11 +155,20 @@ export function syncPolicyForCronPass(base: SyncPolicy, cron: CronPolicy): SyncP
     subscription: {
       ...base.subscription,
       openMs: cron.subscriptionIntervalMs,
+      // Recently listed catch-up uses the listed phase; keep it bounded to the detail cadence.
+      listedMs: Math.max(base.subscription.listedMs, cron.detailIntervalMs),
     },
     financial: {
       ...base.financial,
       openMs: cron.detailIntervalMs,
       upcomingMs: Math.max(base.financial.upcomingMs, cron.detailIntervalMs),
+      // Allotment/closed rows missing a company narrative need a faster retry than seven days.
+      otherMs: cron.detailIntervalMs,
+      listedMs: cron.detailIntervalMs,
+    },
+    history: {
+      ...base.history,
+      listedMs: Math.max(base.history.listedMs, cron.detailIntervalMs),
     },
     lockMs: Math.max(base.lockMs, Math.min(cron.passLockMs, 60_000)),
     maxCallsPerTick: cron.maxCallsPerPass,

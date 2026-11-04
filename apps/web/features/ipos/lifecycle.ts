@@ -17,6 +17,7 @@ export function refreshIpoLifecycle(ipo: Ipo, now = new Date()): Ipo {
     listingDate: ipo.dates.listingDate,
     providerStatus: ipo.status,
     listingConfirmed,
+    allotmentConfirmed: ipo.allotmentConfirmed === true,
   });
   if (resolved.status === "unknown" || resolved.status === ipo.status) return ipo;
   return { ...ipo, status: resolved.status };

@@ -6,7 +6,7 @@ import type { SyncCategory, SyncPolicy } from "../config/sync-policy.ts";
 import type { CacheService } from "../cache/service.ts";
 import { CachePolicyError } from "../cache/errors.ts";
 import type { PersistenceStore } from "../db/repositories.ts";
-import type { SyncRunRecord } from "../db/records.ts";
+import type { IpoRecord, SyncRunRecord } from "../db/records.ts";
 import { QuotaExhaustedError, type QuotaGate } from "../providers/quota.ts";
 import type { ProviderGateway } from "../providers/gateway.ts";
 import type { ProviderKey } from "../providers/provider.ts";
@@ -43,8 +43,19 @@ import {
   syncDue,
   syncPhase,
   syncResource,
+  type PlanIpoRef,
   type SubscriptionFetch,
 } from "./schedule.ts";
+
+function toPlanIpoRef(ipo: IpoRecord): PlanIpoRef {
+  return {
+    id: ipo.id,
+    status: ipo.status,
+    listingDate: ipo.dates.listingDate,
+    listingPriceRupees: ipo.listing?.listingPriceRupees ?? null,
+    hasCompanyNarrative: Boolean(ipo.profile?.about || ipo.profile?.description),
+  };
+}
 
 export class ManualSyncError extends Error {
   constructor() {
@@ -500,7 +511,7 @@ async function runSubscription(context: SyncContext, state: RunState, kind: Subs
     now: context.now(),
     policy: context.policy,
     kind,
-    ipos,
+    ipos: ipos.map(toPlanIpoRef),
     lastRun: (ipoId) => lastFinishedRecord(runs, subscriptionResource(kind, ipoId)),
   });
   const results: SyncJobResult[] = [];
@@ -532,7 +543,7 @@ async function runOneSubscription(
       now: context.now(),
       policy: context.policy,
       kind,
-      ipos: [ipo],
+      ipos: [toPlanIpoRef(ipo)],
       lastRun: () => lastFinishedRecord(freshRuns, resource),
     });
     if (stillDue.length === 0) return skipped(resource);
@@ -568,7 +579,7 @@ async function runIpoDetail(context: SyncContext, state: RunState): Promise<Sync
   const plan = planIpoDetail({
     now: context.now(),
     policy: context.policy,
-    ipos,
+    ipos: ipos.map(toPlanIpoRef),
     lastRun: (ipoId) => lastFinishedRecord(runs, syncResource("financial", ipoId)),
   });
   const results: SyncJobResult[] = [];
@@ -598,7 +609,7 @@ async function runOneIpoDetail(
     const stillDue = planIpoDetail({
       now: context.now(),
       policy: context.policy,
-      ipos: [ipo],
+      ipos: [toPlanIpoRef(ipo)],
       lastRun: () => lastFinishedRecord(freshRuns, resource),
     });
     if (stillDue.length === 0) return skipped(resource);
@@ -713,7 +724,14 @@ async function invalidate(context: SyncContext, targets: readonly (readonly [Cac
       await context.cache.invalidateAfterSync(resource, id);
     } catch (error) {
       if (error instanceof CachePolicyError) {
-        context.logger.error("Cache invalidation skipped", { resource, name: error.name });
+        // Persisted Mongo writes already succeeded; refuse to roll them back.
+        // Log the policy reason so operators can distinguish key vs value vs TTL rejects.
+        context.logger.error("Cache invalidation skipped", {
+          resource,
+          name: error.name,
+          reason: error.reason,
+          idLength: id.length,
+        });
         continue;
       }
       context.logger.error("Cache invalidation failed", {

@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import type { IpoStatus } from "@ipo-singh/contracts";
+import { istCalendarDate } from "@ipo-singh/core";
 import type { SyncCategory, SyncPhase, SyncPolicy } from "../config/sync-policy.ts";
 import type { SyncRunRecord } from "../db/records.ts";
+
+/** Bounded window for one-shot enrichment of newly listed issues (listing price / final subscription). */
+export const recentlyListedEnrichmentDays = 14;
 
 export type PlannedSync = {
   category: Exclude<SyncCategory, "catalog">;
@@ -133,27 +137,69 @@ export type SubscriptionFetch = {
   calls: 1;
 };
 
+export type PlanIpoRef = {
+  id: string;
+  status: IpoStatus | null;
+  listingDate?: string | null;
+  listingPriceRupees?: number | null;
+  /** False when about/description are both absent so a details_full refresh is still needed. */
+  hasCompanyNarrative?: boolean;
+};
+
+function calendarDaysBetween(from: string, to: string): number | null {
+  const start = Date.parse(`${from}T00:00:00.000Z`);
+  const end = Date.parse(`${to}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return Math.round((end - start) / (24 * 60 * 60 * 1000));
+}
+
+/** Listed within the enrichment window (inclusive). Used for bounded listing-price / subscription catch-up. */
+export function isRecentlyListed(
+  input: { status: IpoStatus | null; listingDate?: string | null; today: string; withinDays?: number },
+): boolean {
+  if (input.status !== "listed") return false;
+  if (!input.listingDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.listingDate) || !/^\d{4}-\d{2}-\d{2}$/.test(input.today)) {
+    return false;
+  }
+  const age = calendarDaysBetween(input.listingDate, input.today);
+  if (age === null || age < 0) return false;
+  return age <= (input.withinDays ?? recentlyListedEnrichmentDays);
+}
+
+function needsDetailEnrichment(ipo: PlanIpoRef, today: string): boolean {
+  const phase = syncPhase(ipo.status);
+  if (phase !== "listed") return true;
+  const recent = isRecentlyListed({ status: ipo.status, listingDate: ipo.listingDate, today });
+  if (!recent) return ipo.hasCompanyNarrative === false;
+  const missingPrice = !(typeof ipo.listingPriceRupees === "number" && Number.isFinite(ipo.listingPriceRupees));
+  return missingPrice || ipo.hasCompanyNarrative === false;
+}
+
 /**
  * Current subscription uses the subscription intervals. Open starts at 60 minutes.
  * History uses the slower history intervals. A settled issue is not fetched again after one success.
  * A plan-upgrade failure waits out the listed history interval so a Standard key does not retry every tick.
  *
- * Listed issues are excluded from current and history subscription polls so historical catalogues cannot
- * exhaust quota before open/upcoming/closed enrichment. Settled issues that already succeeded stay skipped.
+ * Older listed issues are excluded so historical catalogues cannot exhaust quota.
+ * Recently listed issues may receive one bounded history catch-up until a success is stored.
  */
 export function planSubscriptionSync(input: {
   now: Date;
   policy: SyncPolicy;
   kind: SubscriptionFetch["kind"];
-  ipos: readonly { id: string; status: IpoStatus | null }[];
+  ipos: readonly PlanIpoRef[];
   lastRun: (ipoId: string) => SyncRunRecord | null;
 }): SubscriptionFetch[] {
+  const today = istCalendarDate(input.now) ?? "";
   const planned: SubscriptionFetch[] = [];
   for (const ipo of input.ipos) {
     const phase = syncPhase(ipo.status);
     const last = input.lastRun(ipo.id);
     if (planUpgradeCooling(last, input.policy, input.now)) continue;
-    if (phase === "listed") continue;
+    const recentListed = isRecentlyListed({ status: ipo.status, listingDate: ipo.listingDate, today });
+    if (phase === "listed" && !(recentListed && input.kind === "history" && last?.status !== "succeeded")) {
+      continue;
+    }
     if (input.kind === "history") {
       const settled = ipo.status === "closed" || ipo.status === "allotment";
       if (settled && last?.status === "succeeded") continue;
@@ -168,24 +214,46 @@ export function planSubscriptionSync(input: {
 
 /**
  * One `GET /ipos/{slug}` per due issue, on the financial interval.
- * Open issues refresh daily. Other phases wait seven days.
- * Listed catalogue rows are skipped so current/upcoming/closed enrichment is not starved.
+ * Open and upcoming stay highest priority. Closed/allotment issues missing a company narrative
+ * are preferred next. Recently listed issues may be enriched for listing price / profile catch-up.
+ * Older listed rows without a gap stay skipped so quota is not spent on historical backfill.
  */
 export function planIpoDetail(input: {
   now: Date;
   policy: SyncPolicy;
-  ipos: readonly { id: string; status: IpoStatus | null }[];
+  ipos: readonly PlanIpoRef[];
   lastRun: (ipoId: string) => SyncRunRecord | null;
 }): PlannedSync[] {
-  const planned: PlannedSync[] = [];
+  const today = istCalendarDate(input.now) ?? "";
+  const planned: Array<PlannedSync & { priority: number }> = [];
   for (const ipo of input.ipos) {
+    if (!needsDetailEnrichment(ipo, today)) continue;
     const phase = syncPhase(ipo.status);
-    if (phase === "listed") continue;
     const last = input.lastRun(ipo.id);
     if (!syncDue(last?.finishedAt ?? null, intervalFor(input.policy, "financial", phase), input.now)) continue;
-    planned.push({ category: "financial", subject: ipo.id, phase, calls: 1 });
+    const missingNarrative = ipo.hasCompanyNarrative === false ? 0 : 1;
+    const recentListedGap =
+      phase === "listed" &&
+      isRecentlyListed({ status: ipo.status, listingDate: ipo.listingDate, today }) &&
+      !(typeof ipo.listingPriceRupees === "number" && Number.isFinite(ipo.listingPriceRupees))
+        ? 0
+        : 1;
+    planned.push({
+      category: "financial",
+      subject: ipo.id,
+      phase,
+      calls: 1,
+      priority: missingNarrative * 10 + recentListedGap,
+    });
   }
-  return sortPlanned(planned);
+  return planned
+    .sort((left, right) => {
+      const byPhase = phaseRank[left.phase] - phaseRank[right.phase];
+      if (byPhase !== 0) return byPhase;
+      if (left.priority !== right.priority) return left.priority - right.priority;
+      return left.subject.localeCompare(right.subject);
+    })
+    .map(({ priority: _priority, ...item }) => item);
 }
 
 function planUpgradeCooling(run: SyncRunRecord | null, policy: SyncPolicy, now: Date): boolean {

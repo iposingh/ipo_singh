@@ -2,8 +2,34 @@ import type { CacheNamespace, CacheResource } from "../config/cache-policy.ts";
 import { CachePolicyError } from "./errors.ts";
 
 const idPattern = /^[a-z0-9][a-z0-9._:-]{0,120}$/;
-const sensitiveId = /(pan|application|applicant|user|account|session|credential|password|secret|token|authorization|cookie)/i;
+/**
+ * Sensitive cache-id tokens. Matched as whole hyphen/underscore/colon/dot segments
+ * so legitimate IPO slugs that merely contain letter sequences like "pan" inside
+ * "company" or "japan" are not rejected.
+ */
+const sensitiveSegments = new Set([
+  "pan",
+  "application",
+  "applicant",
+  "user",
+  "account",
+  "session",
+  "credential",
+  "password",
+  "secret",
+  "token",
+  "authorization",
+  "cookie",
+]);
 const sensitiveField = /^(pan|applicationnumber|applicationno|applicant|userid|accountid|session|password|secret|token|authorization|cookie)$/i;
+
+/** True when any delimited segment of the id is a reserved sensitive token. */
+export function hasSensitiveCacheId(id: string): boolean {
+  if (!id) return true;
+  const normalized = id.trim().toLowerCase();
+  if (sensitiveSegments.has(normalized)) return true;
+  return normalized.split(/[._:-]+/).some((part) => part.length > 0 && sensitiveSegments.has(part));
+}
 
 export function cacheKey(input: {
   version: number;
@@ -12,7 +38,7 @@ export function cacheKey(input: {
   id: string;
   environment?: string;
 }): string {
-  if (!idPattern.test(input.id) || sensitiveId.test(input.id)) {
+  if (!idPattern.test(input.id) || hasSensitiveCacheId(input.id)) {
     throw new CachePolicyError("sensitive-key");
   }
   const environment = input.environment?.trim() || "dev";
