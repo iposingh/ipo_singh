@@ -144,7 +144,36 @@ export type PlanIpoRef = {
   listingPriceRupees?: number | null;
   /** False when about/description are both absent so a details_full refresh is still needed. */
   hasCompanyNarrative?: boolean;
+  /**
+   * True when Mongo already holds at least one usable daily subscription observation.
+   * False means history is still missing. Undefined means the planner may fall back to the last sync run.
+   */
+  hasSubscriptionHistory?: boolean;
 };
+
+/** Daily (non-live) rows with a finite category multiple, including a valid 0x. */
+export function hasUsableSubscriptionHistory(
+  rows: readonly {
+    cadence?: string | null;
+    totalTimes?: number | null;
+    qibTimes?: number | null;
+    niiTimes?: number | null;
+    retailTimes?: number | null;
+    employeeTimes?: number | null;
+    shareholderTimes?: number | null;
+  }[],
+): boolean {
+  return rows.some((row) => {
+    if (row.cadence === "live") return false;
+    const values = [row.totalTimes, row.qibTimes, row.niiTimes, row.retailTimes, row.employeeTimes, row.shareholderTimes];
+    return values.some((value) => typeof value === "number" && Number.isFinite(value));
+  });
+}
+
+/** Successful HTTP with zero persisted observations must not count as final history. */
+export function emptySubscriptionHistoryConfirmed(run: SyncRunRecord | null): boolean {
+  return run?.status === "succeeded" && (run.fetchedCount ?? 0) === 0;
+}
 
 function calendarDaysBetween(from: string, to: string): number | null {
   const start = Date.parse(`${from}T00:00:00.000Z`);
@@ -181,7 +210,8 @@ function needsDetailEnrichment(ipo: PlanIpoRef, today: string): boolean {
  * A plan-upgrade failure waits out the listed history interval so a Standard key does not retry every tick.
  *
  * Older listed issues are excluded so historical catalogues cannot exhaust quota.
- * Recently listed issues may receive one bounded history catch-up until a success is stored.
+ * Recently listed issues receive bounded history catch-up until usable daily observations are stored.
+ * A successful HTTP response with zero usable observations does not establish completeness.
  */
 export function planSubscriptionSync(input: {
   now: Date;
@@ -197,19 +227,58 @@ export function planSubscriptionSync(input: {
     const last = input.lastRun(ipo.id);
     if (planUpgradeCooling(last, input.policy, input.now)) continue;
     const recentListed = isRecentlyListed({ status: ipo.status, listingDate: ipo.listingDate, today });
-    if (phase === "listed" && !(recentListed && input.kind === "history" && last?.status !== "succeeded")) {
+
+    if (phase === "listed") {
+      if (input.kind !== "history" || !recentListed) continue;
+      if (listedSubscriptionHistoryComplete(ipo, last)) continue;
+      if (emptySubscriptionHistoryConfirmed(last)) continue;
+      // Incomplete catch-up uses the shorter of history/financial listed intervals so a 7-day
+      // history TTL cannot strand missing finals for the entire enrichment window.
+      const catchUpMs = Math.min(
+        intervalFor(input.policy, "history", phase),
+        intervalFor(input.policy, "financial", phase),
+      );
+      if (!syncDue(last?.finishedAt ?? null, catchUpMs, input.now)) continue;
+      planned.push({ subject: ipo.id, phase, kind: input.kind, calls: 1 });
       continue;
     }
+
     if (input.kind === "history") {
       const settled = ipo.status === "closed" || ipo.status === "allotment";
-      if (settled && last?.status === "succeeded") continue;
+      if (settled && last?.status === "succeeded" && (last.fetchedCount ?? 0) > 0) continue;
+      if (settled && emptySubscriptionHistoryConfirmed(last)) continue;
       if (!syncDue(last?.finishedAt ?? null, intervalFor(input.policy, "history", phase), input.now)) continue;
     } else if (!syncDue(last?.finishedAt ?? null, intervalFor(input.policy, "subscription", phase), input.now)) {
       continue;
     }
     planned.push({ subject: ipo.id, phase, kind: input.kind, calls: 1 });
   }
-  return planned.sort((left, right) => phaseRank[left.phase] - phaseRank[right.phase] || left.subject.localeCompare(right.subject));
+  return planned.sort((left, right) => {
+    const byPhase =
+      input.kind === "history"
+        ? historyCatchUpPhaseRank(left.phase) - historyCatchUpPhaseRank(right.phase)
+        : phaseRank[left.phase] - phaseRank[right.phase];
+    if (byPhase !== 0) return byPhase;
+    return left.subject.localeCompare(right.subject);
+  });
+}
+
+/**
+ * Stored daily observations win. A prior success with fetchedCount > 0 is only trusted when
+ * completeness was not explicitly reported as missing (for example after retention expiry).
+ */
+function listedSubscriptionHistoryComplete(ipo: PlanIpoRef, last: SyncRunRecord | null): boolean {
+  if (ipo.hasSubscriptionHistory === true) return true;
+  if (ipo.hasSubscriptionHistory === false) return false;
+  return last?.status === "succeeded" && (last.fetchedCount ?? 0) > 0;
+}
+
+/** Open stays first. Recently listed catch-up runs before upcoming/other history refreshes. */
+function historyCatchUpPhaseRank(phase: SyncPhase): number {
+  if (phase === "open") return 0;
+  if (phase === "listed") return 1;
+  if (phase === "upcoming") return 2;
+  return 3;
 }
 
 /**

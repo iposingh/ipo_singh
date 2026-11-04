@@ -4,12 +4,16 @@ import { calendarPath, eventCounts, monthWeeks, type CalendarPageQuery } from "@
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
-const countLabel: Record<CalendarEntry["event"], string> = {
+export const calendarEventOrder = ["open", "close", "allotment", "listing"] as const satisfies readonly CalendarEntry["event"][];
+
+export const calendarEventLabel: Record<CalendarEntry["event"], string> = {
   open: "Opening",
   close: "Closing",
   allotment: "Allotment",
   listing: "Listing",
 };
+
+const countLabel = calendarEventLabel;
 
 const countClass: Record<CalendarEntry["event"], string> = {
   open: "text-primary-solid",
@@ -18,12 +22,31 @@ const countClass: Record<CalendarEntry["event"], string> = {
   listing: "text-amber-700 dark:text-amber-300",
 };
 
-const dotClass: Record<CalendarEntry["event"], string> = {
+export const calendarEventDotClass: Record<CalendarEntry["event"], string> = {
   open: "bg-primary-solid",
   close: "bg-rose-600",
   allotment: "bg-violet-600",
   listing: "bg-amber-500",
 };
+
+const dotClass = calendarEventDotClass;
+
+/** Compact color key for mobile month cells that show dots instead of labels. Hidden from `sm` up. */
+export function CalendarMobileLegend() {
+  return (
+    <ul
+      aria-label="Calendar event colors"
+      className="flex flex-wrap gap-x-3 gap-y-2 sm:hidden"
+    >
+      {calendarEventOrder.map((event) => (
+        <li key={event} className="inline-flex items-center gap-1.5 text-xs text-muted">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${calendarEventDotClass[event]}`} aria-hidden="true" />
+          <span>{calendarEventLabel[event]}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function CalendarMonth({
   query,

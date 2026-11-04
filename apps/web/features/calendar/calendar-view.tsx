@@ -9,7 +9,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { LoadingState } from "@/components/ui/loading-state";
 import { CalendarAgenda } from "@/features/calendar/calendar-agenda";
 import { CalendarList } from "@/features/calendar/calendar-list";
-import { CalendarMonth } from "@/features/calendar/calendar-month";
+import { CalendarMobileLegend, CalendarMonth } from "@/features/calendar/calendar-month";
 import {
   calendarPath,
   filterCalendarEntries,
@@ -165,7 +165,10 @@ export function CalendarView({
             )
           ) : (
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-              <CalendarMonth query={query} entries={visible} today={today} selected={selected} />
+              <div className="grid gap-3">
+                <CalendarMobileLegend />
+                <CalendarMonth query={query} entries={visible} today={today} selected={selected} />
+              </div>
               <CalendarAgenda date={selected} entries={agenda} />
             </div>
           )}

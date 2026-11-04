@@ -32,7 +32,9 @@ import { mapAnchors } from "../providers/ipo-guru/anchors.ts";
 import { mapIpoDetail } from "../providers/ipo-guru/detail.ts";
 import { mapCurrentSubscription, mapSubscriptionHistory } from "../providers/ipo-guru/subscription.ts";
 import {
+  hasUsableSubscriptionHistory,
   intervalFor,
+  isRecentlyListed,
   lastFinishedRecord,
   lastFinishedSync,
   lastSuccessfulSync,
@@ -46,15 +48,70 @@ import {
   type PlanIpoRef,
   type SubscriptionFetch,
 } from "./schedule.ts";
+import type { SubscriptionObservationRecord } from "../db/records.ts";
 
-function toPlanIpoRef(ipo: IpoRecord): PlanIpoRef {
+function toPlanIpoRef(ipo: IpoRecord, hasSubscriptionHistory?: boolean): PlanIpoRef {
   return {
     id: ipo.id,
     status: ipo.status,
     listingDate: ipo.dates.listingDate,
     listingPriceRupees: ipo.listing?.listingPriceRupees ?? null,
     hasCompanyNarrative: Boolean(ipo.profile?.about || ipo.profile?.description),
+    hasSubscriptionHistory,
   };
+}
+
+function subscriptionRowsByIpo(rows: readonly SubscriptionObservationRecord[]): Map<string, SubscriptionObservationRecord[]> {
+  const byIpo = new Map<string, SubscriptionObservationRecord[]>();
+  for (const row of rows) {
+    const list = byIpo.get(row.ipoId);
+    if (list) list.push(row);
+    else byIpo.set(row.ipoId, [row]);
+  }
+  return byIpo;
+}
+
+async function loadSubscriptionRowsFor(
+  store: PersistenceStore,
+  ipoIds: readonly string[],
+  now: Date,
+): Promise<Map<string, SubscriptionObservationRecord[]>> {
+  if (ipoIds.length === 0) return new Map();
+  const repo = store.subscriptions as PersistenceStore["subscriptions"] & {
+    findByIpos?: (ids: readonly string[], now?: Date) => Promise<SubscriptionObservationRecord[]>;
+  };
+  if (typeof repo.findByIpos === "function") {
+    return subscriptionRowsByIpo(await repo.findByIpos(ipoIds.slice(0, 100), now));
+  }
+  const byIpo = new Map<string, SubscriptionObservationRecord[]>();
+  for (const id of ipoIds.slice(0, 100)) {
+    byIpo.set(id, await store.subscriptions.findByIpo(id, now));
+  }
+  return byIpo;
+}
+
+async function toPlanIpoRefsForSubscription(
+  store: PersistenceStore,
+  ipos: readonly IpoRecord[],
+  kind: SubscriptionFetch["kind"],
+  now: Date,
+): Promise<PlanIpoRef[]> {
+  if (kind !== "history") return ipos.map((ipo) => toPlanIpoRef(ipo));
+  const today = istCalendarDate(now) ?? "";
+  const recentListed = ipos.filter((ipo) =>
+    isRecentlyListed({ status: ipo.status, listingDate: ipo.dates.listingDate, today }),
+  );
+  const byIpo = await loadSubscriptionRowsFor(
+    store,
+    recentListed.map((ipo) => ipo.id),
+    now,
+  );
+  return ipos.map((ipo) => {
+    if (!isRecentlyListed({ status: ipo.status, listingDate: ipo.dates.listingDate, today })) {
+      return toPlanIpoRef(ipo);
+    }
+    return toPlanIpoRef(ipo, hasUsableSubscriptionHistory(byIpo.get(ipo.id) ?? []));
+  });
 }
 
 export class ManualSyncError extends Error {
@@ -132,7 +189,13 @@ function taskAllowed(context: SyncContext, key: keyof SyncTaskFilter): boolean {
 type RunState = {
   calls: number;
   stopForQuota: boolean;
+  /** Calls held so subscription-history catch-up for recently listed IPOs is not starved. */
+  reservedCalls: number;
 };
+
+function tickBudgetAllows(state: RunState, policy: SyncPolicy, calls: number): boolean {
+  return state.calls + calls + state.reservedCalls <= policy.maxCallsPerTick;
+}
 
 export async function runManualSync(
   nodeEnv: "development" | "test" | "production",
@@ -156,7 +219,11 @@ export async function runSyncTick(context: SyncContext, categories?: readonly Sy
   const selected = context.ipoGuruCatalog
     ? (["catalog"] as const)
     : (categories ?? (["catalog", "gmp", "subscription", "financial", "history"] as const));
-  const state: RunState = { calls: 0, stopForQuota: false };
+  const state: RunState = {
+    calls: 0,
+    stopForQuota: false,
+    reservedCalls: await listedSubscriptionHistoryReserve(context),
+  };
   const results: SyncJobResult[] = [];
   if (selected.includes("catalog") && taskAllowed(context, "catalog")) {
     results.push(...(await runCatalog(context, state)));
@@ -181,6 +248,8 @@ export async function runSyncTick(context: SyncContext, categories?: readonly Sy
     context.loadSubscriptionHistory &&
     taskAllowed(context, "subscriptionHistory")
   ) {
+    // Release the reserved slot so listed catch-up and open history can use remaining budget.
+    state.reservedCalls = 0;
     results.push(...(await runSubscription(context, state, "history")));
   }
   if (!state.stopForQuota && !context.stopped?.() && context.loadIpoDetail && taskAllowed(context, "ipoDetail")) {
@@ -198,10 +267,28 @@ export async function runSyncTick(context: SyncContext, categories?: readonly Sy
   });
   for (const item of plan) {
     if (context.stopped?.() || state.stopForQuota) break;
-    if (state.calls + item.calls > context.policy.maxCallsPerTick) continue;
+    if (!tickBudgetAllows(state, context.policy, item.calls)) continue;
     results.push(await runIssue(context, state, item.category, item.subject));
   }
   return results;
+}
+
+/** Hold one provider call when recently listed IPOs still lack usable subscription history. */
+async function listedSubscriptionHistoryReserve(context: SyncContext): Promise<number> {
+  if (!context.loadSubscriptionHistory || !taskAllowed(context, "subscriptionHistory")) return 0;
+  const ipos = await context.store.ipos.list();
+  const now = context.now();
+  const today = istCalendarDate(now) ?? "";
+  const recent = ipos.filter((ipo) =>
+    isRecentlyListed({ status: ipo.status, listingDate: ipo.dates.listingDate, today }),
+  );
+  if (recent.length === 0) return 0;
+  const byIpo = await loadSubscriptionRowsFor(
+    context.store,
+    recent.map((ipo) => ipo.id),
+    now,
+  );
+  return recent.some((ipo) => !hasUsableSubscriptionHistory(byIpo.get(ipo.id) ?? [])) ? 1 : 0;
 }
 
 async function runCatalog(context: SyncContext, state: RunState): Promise<SyncJobResult[]> {
@@ -209,7 +296,7 @@ async function runCatalog(context: SyncContext, state: RunState): Promise<SyncJo
   if (!syncDue(lastFinishedSync(runs, syncResource("catalog", "catalogue")), context.policy.catalogMs, context.now())) {
     return [];
   }
-  if (state.calls + 1 > context.policy.maxCallsPerTick) return [];
+  if (!tickBudgetAllows(state, context.policy, 1)) return [];
   const release = await context.locks.acquire(syncResource("catalog", "catalogue"), context.policy.lockMs);
   if (!release) return [skipped(syncResource("catalog", "catalogue"))];
   const startedAt = context.now();
@@ -231,7 +318,7 @@ async function runCatalog(context: SyncContext, state: RunState): Promise<SyncJo
         deferred = true;
         break;
       }
-      if (state.calls + 1 > context.policy.maxCallsPerTick) {
+      if (!tickBudgetAllows(state, context.policy, 1)) {
         deferred = true;
         break;
       }
@@ -351,7 +438,7 @@ async function runGmpCollection(context: SyncContext, state: RunState): Promise<
     reservedRequests: budget.reservedRequests,
   });
   if (!syncDue(lastFinishedSync(runs, resource), interval, context.now())) return [];
-  if (state.calls + 1 > context.policy.maxCallsPerTick) return [];
+  if (!tickBudgetAllows(state, context.policy, 1)) return [];
   const release = await context.locks.acquire(resource, context.policy.lockMs);
   if (!release) return [skipped(resource)];
   const startedAt = context.now();
@@ -440,7 +527,7 @@ async function runGmpHistory(context: SyncContext, state: RunState): Promise<Syn
   const results: SyncJobResult[] = [];
   for (const item of plan) {
     if (context.stopped?.() || state.stopForQuota) break;
-    if (state.calls + item.calls > context.policy.maxCallsPerTick) continue;
+    if (!tickBudgetAllows(state, context.policy, item.calls)) continue;
     results.push(await runOneGmpHistory(context, state, item.subject, load));
   }
   return results;
@@ -507,18 +594,51 @@ async function runSubscription(context: SyncContext, state: RunState, kind: Subs
   if (!load) return [];
   const ipos = await context.store.ipos.list();
   const runs = await context.store.sync.findByProvider(context.providerKey, context.now());
+  const planRefs = await toPlanIpoRefsForSubscription(context.store, ipos, kind, context.now());
   const plan = planSubscriptionSync({
     now: context.now(),
     policy: context.policy,
     kind,
-    ipos: ipos.map(toPlanIpoRef),
+    ipos: planRefs,
     lastRun: (ipoId) => lastFinishedRecord(runs, subscriptionResource(kind, ipoId)),
   });
+  const listedPlan = plan.filter((item) => item.phase === "listed");
+  const otherPlan = plan.filter((item) => item.phase !== "listed");
+  // Spend the reserved catch-up slot on a listed IPO before open/upcoming history can absorb it.
+  const ordered =
+    kind === "history" && listedPlan.length > 0 ? [listedPlan[0]!, ...otherPlan, ...listedPlan.slice(1)] : plan;
+  const listedNeeding = listedPlan.length;
+  let listedSelected = 0;
+  let listedDeferred = 0;
+  let listedEnriched = 0;
+  let listedFailed = 0;
   const results: SyncJobResult[] = [];
-  for (const item of plan) {
-    if (context.stopped?.() || state.stopForQuota) break;
-    if (state.calls + item.calls > context.policy.maxCallsPerTick) continue;
-    results.push(await runOneSubscription(context, state, item.subject, kind, load));
+  for (const item of ordered) {
+    if (context.stopped?.() || state.stopForQuota) {
+      if (item.phase === "listed") listedDeferred += 1;
+      continue;
+    }
+    if (!tickBudgetAllows(state, context.policy, item.calls)) {
+      if (item.phase === "listed") listedDeferred += 1;
+      continue;
+    }
+    if (item.phase === "listed") listedSelected += 1;
+    const result = await runOneSubscription(context, state, item.subject, kind, load);
+    results.push(result);
+    if (item.phase === "listed") {
+      if (result.status === "succeeded" && result.fetchedCount > 0) listedEnriched += 1;
+      else if (result.status === "failed") listedFailed += 1;
+    }
+  }
+  if (kind === "history" && listedNeeding > 0) {
+    context.logger.info("Recently listed subscription history catch-up", {
+      needing: listedNeeding,
+      selected: listedSelected,
+      deferred: listedDeferred,
+      enriched: listedEnriched,
+      failedOrSkipped: listedFailed + Math.max(0, listedSelected - listedEnriched - listedFailed),
+      remaining: Math.max(0, listedNeeding - listedEnriched),
+    });
   }
   return results;
 }
@@ -539,11 +659,12 @@ async function runOneSubscription(
     const ipo = (await context.store.ipos.list()).find((item) => item.id === ipoId);
     if (!ipo) throw new SyncRejectedError();
     const freshRuns = await context.store.sync.findByProvider(context.providerKey, context.now());
+    const planRefs = await toPlanIpoRefsForSubscription(context.store, [ipo], kind, context.now());
     const stillDue = planSubscriptionSync({
       now: context.now(),
       policy: context.policy,
       kind,
-      ipos: [toPlanIpoRef(ipo)],
+      ipos: planRefs,
       lastRun: () => lastFinishedRecord(freshRuns, resource),
     });
     if (stillDue.length === 0) return skipped(resource);
@@ -579,14 +700,14 @@ async function runIpoDetail(context: SyncContext, state: RunState): Promise<Sync
   const plan = planIpoDetail({
     now: context.now(),
     policy: context.policy,
-    ipos: ipos.map(toPlanIpoRef),
+    ipos: ipos.map((ipo) => toPlanIpoRef(ipo)),
     lastRun: (ipoId) => lastFinishedRecord(runs, syncResource("financial", ipoId)),
   });
   const results: SyncJobResult[] = [];
   for (const item of plan) {
     if (context.stopped?.() || state.stopForQuota) break;
     const anchorCall = context.loadAnchors && (item.phase === "open" || item.phase === "upcoming") ? 1 : 0;
-    if (state.calls + item.calls + anchorCall > context.policy.maxCallsPerTick) continue;
+    if (!tickBudgetAllows(state, context.policy, item.calls + anchorCall)) continue;
     results.push(await runOneIpoDetail(context, state, item.subject, load));
   }
   return results;

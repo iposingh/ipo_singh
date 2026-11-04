@@ -19,7 +19,11 @@ import { createLogger } from "../shared/logger.ts";
 const key = "test-key-value-0001";
 const logger = createLogger({ level: "error", service: "subscription-sync-test", sink: () => undefined });
 
-function issue(slug: string, status: IpoRecord["status"]): IpoRecord {
+function issue(
+  slug: string,
+  status: IpoRecord["status"],
+  dates?: Partial<IpoRecord["dates"]> & { listingDate?: string | null },
+): IpoRecord {
   return {
     id: slug,
     slug,
@@ -29,13 +33,26 @@ function issue(slug: string, status: IpoRecord["status"]): IpoRecord {
     issue: {
       priceBandLowRupees: 100,
       priceBandHighRupees: 120,
-      issuePriceRupees: null,
+      issuePriceRupees: status === "listed" ? 150 : null,
       issueSizeRupees: null,
       lotSizeShares: null,
       minimumInvestmentRupees: null,
     },
-    dates: { openDate: "2026-08-24", closeDate: "2026-08-28", allotmentDate: null, listingDate: null },
-    listing: null,
+    dates: {
+      openDate: dates?.openDate ?? "2026-08-24",
+      closeDate: dates?.closeDate ?? "2026-08-28",
+      allotmentDate: dates?.allotmentDate ?? null,
+      listingDate: dates?.listingDate ?? null,
+    },
+    listing:
+      status === "listed"
+        ? {
+            listingPriceRupees: 248,
+            issuePriceRupees: 150,
+            gainPercent: null,
+            listedOn: dates?.listingDate ?? "2026-11-03",
+          }
+        : null,
     registrarId: null,
     providerMappings: [{ providerKey: "ipo-guru", externalId: slug }],
     source: {
@@ -91,9 +108,16 @@ function historyBody(): string {
   });
 }
 
-function harness(input?: { status?: () => number; body?: () => string; ipos?: IpoRecord[]; maxCalls?: number }) {
+function harness(input?: {
+  status?: () => number;
+  body?: () => string;
+  ipos?: IpoRecord[];
+  maxCalls?: number;
+  now?: Date;
+  historyBodies?: Record<string, string>;
+}) {
   const urls: string[] = [];
-  let clock = new Date("2026-09-01T13:05:00.000Z");
+  let clock = input?.now ?? new Date("2026-09-01T13:05:00.000Z");
   const ipos = input?.ipos ?? [issue("open-mills-ipo", "open"), issue("soon-mills-ipo", "upcoming"), issue("listed-mills-ipo", "listed")];
   const observations: SubscriptionObservationRecord[] = [];
   const runs: SyncRunRecord[] = [
@@ -113,10 +137,12 @@ function harness(input?: { status?: () => number; body?: () => string; ipos?: Ip
     assert.equal(request.url.includes(key), false);
     assert.equal(request.url.includes("gmp"), false);
     const history = request.url.endsWith("/subscription/history");
+    const slug = request.url.match(/\/ipos\/([^/]+)\/subscription/)?.[1] ?? "";
+    const override = history ? input?.historyBodies?.[slug] : undefined;
     return {
       status: input?.status?.() ?? 200,
       headers: { "x-plan": "pro" },
-      body: input?.body?.() ?? (history ? historyBody() : currentBody()),
+      body: override ?? input?.body?.() ?? (history ? historyBody() : currentBody()),
     };
   };
   const config = readConfig({ IPOGURU_ENABLED: "true", IPOGURU_API_KEY: key, IPOGURU_MINUTE_BUDGET: "20", IPOGURU_DAILY_BUDGET: "1000" }, "0.1.0");
@@ -301,5 +327,121 @@ describe("IPO Guru subscription sync", () => {
     assert.equal(upgrade.urls.length, called);
     await assert.rejects(() => upgrade.client.readSubscription("../secret"), /IPO Guru request failed/);
     assert.equal(upgrade.urls.length, called);
+  });
+
+  it("backfills recently listed history under the eight-call budget without starving open polls", async () => {
+    const listed = [
+      issue("bls-polymers-ipo", "listed", { listingDate: "2026-11-03" }),
+      issue("sfc-environmental-ipo", "listed", { listingDate: "2026-11-02" }),
+      issue("eaaa-india-ipo", "listed", { listingDate: "2026-11-01" }),
+    ];
+    const open = [issue("open-mills-ipo", "open"), issue("open-steel-ipo", "open")];
+    const run = harness({
+      now: new Date("2026-11-04T06:00:00.000Z"),
+      ipos: [...open, ...listed],
+      maxCalls: 8,
+      historyBodies: {
+        "bls-polymers-ipo": JSON.stringify({
+          success: true,
+          plan: "pro",
+          data: {
+            count: 1,
+            day_wise: [
+              {
+                day: 3,
+                date: "2026-10-29",
+                time: "19:30:00",
+                qib: "200.25",
+                nii: "559.20",
+                retail: "128.36",
+                employee: null,
+                shareholder: null,
+                total: "241.22",
+              },
+            ],
+          },
+        }),
+      },
+    });
+
+    const first = await runSyncTick(run.context);
+    const historyUrls = run.urls.filter((url) => url.endsWith("/subscription/history"));
+    assert.ok(historyUrls.length >= 1, "reserved budget must reach subscription history");
+    assert.ok(
+      historyUrls.some((url) => url.includes("bls-polymers-ipo") || url.includes("sfc-environmental") || url.includes("eaaa-india")),
+      "at least one recently listed history catch-up must run",
+    );
+    assert.ok(run.urls.some((url) => url.endsWith("/subscription") && !url.endsWith("/history")));
+    assert.ok(first.some((item) => item.status === "succeeded"));
+
+    const bls = run.observations.filter((item) => item.ipoId === "bls-polymers-ipo" && item.cadence === "daily");
+    if (historyUrls.some((url) => url.includes("bls-polymers-ipo"))) {
+      assert.equal(bls[0]?.totalTimes, 241.22);
+      assert.equal(bls[0]?.qibTimes, 200.25);
+      assert.equal(bls[0]?.niiTimes, 559.2);
+      assert.equal(bls[0]?.retailTimes, 128.36);
+      assert.equal(bls[0]?.observedOn, "2026-10-29");
+    }
+
+    // Second pass should progress another incomplete listed IPO without refetching complete ones.
+    run.advance(15 * 60 * 1000);
+    await runSyncTick(run.context);
+    const listedHistory = run.urls.filter((url) =>
+      url.endsWith("/subscription/history") &&
+      (url.includes("bls-polymers") || url.includes("sfc-environmental") || url.includes("eaaa-india")),
+    );
+    assert.ok(listedHistory.length >= 2, "multiple recently listed IPOs must make progress across ticks");
+  });
+
+  it("does not convert a valid provider zero into a fabricated positive multiple", async () => {
+    const run = harness({
+      now: new Date("2026-11-04T06:00:00.000Z"),
+      ipos: [issue("zero-listed-ipo", "listed", { listingDate: "2026-11-03" })],
+      maxCalls: 2,
+      historyBodies: {
+        "zero-listed-ipo": JSON.stringify({
+          success: true,
+          plan: "pro",
+          data: {
+            count: 1,
+            day_wise: [
+              {
+                day: 1,
+                date: "2026-10-28",
+                time: null,
+                qib: "0",
+                nii: null,
+                retail: "0",
+                employee: "0",
+                shareholder: null,
+                total: "0",
+              },
+            ],
+          },
+        }),
+      },
+    });
+    await runSyncTick(run.context);
+    const daily = run.observations.find((item) => item.ipoId === "zero-listed-ipo" && item.cadence === "daily");
+    assert.equal(daily?.totalTimes, 0);
+    assert.equal(daily?.qibTimes, 0);
+    assert.equal(daily?.retailTimes, 0);
+  });
+
+  it("keeps open current polling ahead of listed catch-up when budget is tight", async () => {
+    const run = harness({
+      now: new Date("2026-11-04T06:00:00.000Z"),
+      ipos: [
+        issue("open-mills-ipo", "open"),
+        issue("open-steel-ipo", "open"),
+        issue("bls-polymers-ipo", "listed", { listingDate: "2026-11-03" }),
+      ],
+      maxCalls: 2,
+    });
+    await runSyncTick(run.context);
+    assert.equal(run.urls.filter((url) => url.endsWith("/subscription") && !url.endsWith("/history")).length, 1);
+    assert.equal(run.urls.filter((url) => url.endsWith("/subscription/history")).length, 1);
+    assert.ok(run.urls.some((url) => url.includes("open-mills-ipo") && url.endsWith("/subscription")));
+    assert.ok(run.urls.some((url) => url.includes("bls-polymers-ipo") && url.endsWith("/subscription/history")));
   });
 });

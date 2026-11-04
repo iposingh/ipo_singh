@@ -178,6 +178,9 @@ export function CalendarScreen() {
           />
         ) : null}
         {state.phase === "ready" ? (
+          <CalendarEventLegend />
+        ) : null}
+        {state.phase === "ready" ? (
           <View
             accessibilityLabel={`${bounds?.label ?? "Month"} calendar${todayInView && today ? `, today ${formatIstDate(today)}` : ""}`}
             style={{
@@ -347,6 +350,36 @@ function eventDotColor(
   if (event === "close") return close;
   if (event === "allotment") return allotment;
   return listing;
+}
+
+const calendarLegendOrder: readonly CalendarEventKind[] = ["open", "close", "allotment", "listing"];
+
+function CalendarEventLegend() {
+  const { palette } = useTheme();
+  return (
+    <View
+      accessible
+      accessibilityLabel="Calendar event colors"
+      style={{ flexDirection: "row", flexWrap: "wrap", gap: mobileTheme.spacing[3] }}
+    >
+      {calendarLegendOrder.map((event) => (
+        <View key={event} style={{ flexDirection: "row", alignItems: "center", gap: mobileTheme.spacing[1] }}>
+          <View
+            accessible={false}
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: mobileTheme.radius.full,
+              backgroundColor: eventDotColor(event, palette.primarySolid, palette.negative, palette.deep, palette.warning),
+            }}
+          />
+          <AppText size="xs" tone="muted">
+            {calendarEventLabel(event)}
+          </AppText>
+        </View>
+      ))}
+    </View>
+  );
 }
 
 function EventChip({ event }: { event: CalendarEventKind }) {
