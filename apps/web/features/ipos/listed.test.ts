@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Ipo } from "@ipo-singh/contracts";
+import type { Ipo, IpoSummary } from "@ipo-singh/contracts";
 import { actualListingPerformance, arrangeListed, listedPath, parseListedQuery } from "./listed.ts";
 
 function listed(overrides: Partial<Ipo> & Pick<Ipo, "slug" | "companyName">): Ipo {
@@ -118,6 +118,101 @@ test("a stored listing gain is kept when the prices cannot be calculated", () =>
   );
   assert.equal(stored.issuePriceRupees, 0);
   assert.equal(stored.gainPercent, 4.5);
+});
+
+test("catalogue summaries expose stored current price and since-listing change", () => {
+  const summary: IpoSummary = {
+    id: "summary-mills",
+    slug: "summary-mills",
+    companyName: "Summary Mills",
+    board: "mainboard",
+    status: "listed",
+    openDate: "2026-08-01",
+    closeDate: "2026-08-04",
+    gmpAmountRupees: null,
+    subscriptionTotalTimes: 12.5,
+    provenance: { sourceName: "IPO Singh", retrievedAt: null, freshness: "missing" },
+    issuePriceRupees: 100,
+    priceBandLowRupees: 90,
+    priceBandHighRupees: 100,
+    listingDate: "2026-08-10",
+    listingPriceRupees: 120,
+    listingIssuePriceRupees: 100,
+    listingGainPercent: 1,
+    cmpRupees: 130,
+    currentGainPercent: 8.33,
+  };
+  const facts = actualListingPerformance(summary);
+  assert.equal(facts.issuePriceRupees, 100);
+  assert.equal(facts.listingPriceRupees, 120);
+  assert.equal(facts.gainPercent, 20);
+  assert.equal(facts.listingDate, "2026-08-10");
+  assert.equal(facts.currentPriceRupees, 130);
+  assert.equal(facts.sinceListingPercent, 8.33);
+
+  const missing: IpoSummary = {
+    ...summary,
+    id: "missing-mills",
+    slug: "missing-mills",
+    listingGainPercent: null,
+    cmpRupees: null,
+    currentGainPercent: null,
+  };
+  const missingFacts = actualListingPerformance(missing);
+  assert.equal(missingFacts.currentPriceRupees, null);
+  assert.equal(missingFacts.sinceListingPercent, null);
+
+  const zero: IpoSummary = {
+    ...summary,
+    id: "zero-mills",
+    slug: "zero-mills",
+    listingPriceRupees: 100,
+    listingGainPercent: 0,
+    cmpRupees: 0,
+    currentGainPercent: 0,
+  };
+  const zeroFacts = actualListingPerformance(zero);
+  assert.equal(zeroFacts.gainPercent, 0);
+  assert.equal(zeroFacts.currentPriceRupees, 0);
+  assert.equal(zeroFacts.sinceListingPercent, 0);
+
+  const negative: IpoSummary = {
+    ...summary,
+    id: "loss-mills",
+    slug: "loss-mills",
+    listingPriceRupees: 80,
+    currentGainPercent: -12.5,
+  };
+  assert.equal(actualListingPerformance(negative).gainPercent, -20);
+  assert.equal(actualListingPerformance(negative).sinceListingPercent, -12.5);
+
+  const storedFallback: IpoSummary = {
+    ...summary,
+    id: "stored-fallback",
+    slug: "stored-fallback",
+    listingIssuePriceRupees: 0,
+    issuePriceRupees: 0,
+    priceBandLowRupees: null,
+    priceBandHighRupees: null,
+    listingPriceRupees: 10,
+    listingGainPercent: 4.5,
+    cmpRupees: null,
+    currentGainPercent: null,
+  };
+  assert.equal(actualListingPerformance(storedFallback).gainPercent, 4.5);
+
+  const arranged = arrangeListed(
+    [
+      summary,
+      { ...summary, id: "sme-mills", slug: "sme-mills", companyName: "SME Mills", board: "sme", listingDate: "2026-07-01", listingPriceRupees: 80 },
+      { ...summary, id: "open-mills", slug: "open-mills", status: "open" },
+    ],
+    parseListedQuery({ board: "sme" }),
+  );
+  assert.deepEqual(
+    arranged.map((ipo) => ipo.slug),
+    ["sme-mills"],
+  );
 });
 
 test("listed history filters, sorts missing prices last, and paginates in the path", () => {

@@ -1,5 +1,6 @@
 import type { IpoSummary } from "@ipo-singh/contracts";
 import { istCalendarDate } from "@ipo-singh/core";
+import { connection } from "next/server";
 import { ActionLink } from "@/components/layout/action-link";
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/layout/page-header";
@@ -9,7 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { CalendarList } from "@/features/calendar/calendar-list";
-import { loadCalendar, loadListingPage } from "@/features/ipos/catalog";
+import { currentMonth, monthBounds } from "@/features/calendar/month";
+import { loadCalendarMonth, loadListingPage } from "@/features/ipos/catalog";
 import { isIpoGuruSource } from "@/features/ipo-details/source-credit";
 import { latestRetrievedAt, SourceAttribution } from "@/features/ipo-details/source-attribution";
 import { listingFailureCopy } from "@/features/ipos/listing-state";
@@ -23,6 +25,7 @@ import { siteUrl } from "@/lib/seo/site";
 import { homeDocument, type LinkedItem } from "@/lib/seo/structured-data";
 
 const homePreviewLimit = 8;
+const homeCalendarPreviewLimit = 6;
 
 type HomeBucket = {
   id: "open" | "upcoming" | "listed";
@@ -34,12 +37,17 @@ type HomeBucket = {
 };
 
 export async function HomeView() {
-  const [buckets, calendar] = await Promise.all([loadHomeBuckets(), loadCalendar()]);
+  // Mark the route dynamic before reading the current India calendar day/month.
+  await connection();
   const now = new Date();
+  const [buckets, calendar, promotions] = await Promise.all([
+    loadHomeBuckets(),
+    loadHomeCalendarPreview(now),
+    loadHomePromotions(),
+  ]);
   const today = istCalendarDate(now) ?? "";
-  const preview = calendar.status === "ready" ? calendar.entries.slice(0, 6) : [];
+  const preview = calendar.status === "ready" ? calendar.entries.slice(0, homeCalendarPreviewLimit) : [];
   const origin = siteUrl();
-  const promotions = await loadHomePromotions();
   const app = currentAppPromotion();
   const stamps = buckets.flatMap((bucket) => bucket.items.map((ipo) => ipo.provenance.retrievedAt));
   const guru = buckets.some((bucket) => bucket.items.some((ipo) => isIpoGuruSource(ipo.provenance.sourceName)));
@@ -127,6 +135,17 @@ export async function HomeView() {
       {guru ? <SourceAttribution retrievedAt={latestRetrievedAt(stamps)} /> : null}
     </PageContainer>
   );
+}
+
+/**
+ * Homepage calendar preview for the current India calendar month only.
+ * Avoids unbounded historical pagination; the full calendar page remains the complete view.
+ */
+async function loadHomeCalendarPreview(now: Date) {
+  const month = currentMonth(now);
+  const bounds = month ? monthBounds(month) : null;
+  if (!bounds) return { status: "unavailable" as const, entries: [], truncated: false };
+  return loadCalendarMonth(bounds.from, bounds.to, "all");
 }
 
 async function loadHomeBuckets(): Promise<HomeBucket[]> {

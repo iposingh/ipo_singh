@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Ipo } from "@ipo-singh/contracts";
+import type { Ipo, IpoSummary } from "@ipo-singh/contracts";
 import { ActionLink } from "@/components/layout/action-link";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PageContainer } from "@/components/layout/page-container";
@@ -38,7 +38,7 @@ export function ListedView({
   pending = false,
 }: {
   query: ListedQuery;
-  items: readonly Ipo[];
+  items: readonly (Ipo | IpoSummary)[];
   truncated?: boolean;
   unavailable?: boolean;
   pending?: boolean;

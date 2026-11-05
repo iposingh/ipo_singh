@@ -326,27 +326,73 @@ test("requests one calendar month and board from IPO Singh", async () => {
   assert.equal(urls.some((url) => url.includes("ipoguru.in")), false);
 });
 
-test("loads listed issues without requesting GMP history", async () => {
+test("loads listed issues from summaries without hydrating detail documents", async () => {
   const urls: string[] = [];
-  const listedSummary = { ...summary, status: "listed" as const };
+  const listedSummary = {
+    ...summary,
+    status: "listed" as const,
+    listingDate: "2026-10-08",
+    listingPriceRupees: 120,
+    listingIssuePriceRupees: 100,
+    issuePriceRupees: 100,
+    listingGainPercent: 20,
+    cmpRupees: 130,
+    currentGainPercent: 8.33,
+  };
   const fetchImpl: typeof fetch = async (input) => {
     const url = String(input);
     urls.push(url);
     if (url.includes("/api/v1/ipos?")) {
       return Response.json({ items: [listedSummary], page: { limit: 100, nextCursor: null, totalCount: 1 } });
     }
-    if (url.endsWith("/api/v1/ipos/stored-mills")) return Response.json({ ...ipo(), status: "listed" });
+    if (url.includes("/api/v1/ipos/stored-mills")) {
+      throw new Error("listed catalogue must not hydrate detail documents");
+    }
     return new Response(null, { status: 404 });
   };
   const loaded = await loadListedCatalog({ origin: "http://127.0.0.1:4000", fetch: fetchImpl });
   assert.equal(loaded.status, "ready");
   if (loaded.status === "ready") {
     assert.equal(loaded.ipos[0]?.status, "listed");
+    assert.equal(loaded.ipos[0]?.listingPriceRupees, 120);
+    assert.equal(loaded.ipos[0]?.listingIssuePriceRupees, 100);
+    assert.equal(loaded.ipos[0]?.listingGainPercent, 20);
+    assert.equal(loaded.ipos[0]?.cmpRupees, 130);
+    assert.equal(loaded.ipos[0]?.currentGainPercent, 8.33);
     assert.equal(loaded.truncated, false);
   }
   assert.equal(urls.some((url) => url.includes("status=listed")), true);
+  assert.equal(urls.some((url) => /\/api\/v1\/ipos\/[^?]+$/.test(url)), false);
   assert.equal(urls.some((url) => url.includes("/gmp")), false);
   assert.equal(urls.some((url) => url.includes("ipoguru.in")), false);
+});
+
+test("listed catalogue paginates summaries without detail calls across pages", async () => {
+  const urls: string[] = [];
+  const fetchImpl: typeof fetch = async (input) => {
+    const url = String(input);
+    urls.push(url);
+    if (url.includes("cursor=")) {
+      return Response.json({
+        items: [{ ...summary, id: "listed-b", slug: "listed-b", status: "listed" as const, listingDate: "2026-09-01" }],
+        page: { limit: 100, nextCursor: null, totalCount: 2 },
+      });
+    }
+    return Response.json({
+      items: [{ ...summary, id: "listed-a", slug: "listed-a", status: "listed" as const, listingDate: "2026-10-01" }],
+      page: { limit: 100, nextCursor: "Mg", totalCount: 2 },
+    });
+  };
+  const loaded = await loadListedCatalog({ origin: "http://127.0.0.1:4000", fetch: fetchImpl });
+  assert.equal(loaded.status, "ready");
+  if (loaded.status === "ready") {
+    assert.deepEqual(
+      loaded.ipos.map((item) => item.slug),
+      ["listed-a", "listed-b"],
+    );
+  }
+  assert.equal(urls.length, 2);
+  assert.equal(urls.every((url) => url.includes("/api/v1/ipos?")), true);
 });
 
 test("reports an API failure instead of substituting issues", async () => {

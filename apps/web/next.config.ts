@@ -10,6 +10,38 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["recharts"],
   },
   cacheComponents: true,
+  /**
+   * Next.js public-page cache profiles (seconds).
+   * These bound website reuse only. Redis/API TTLs remain the system of record for upstream data.
+   * Max Next staleness ≈ expire; Mongo/Redis updates become visible after the next revalidate window.
+   */
+  cacheLife: {
+    ipoListings: {
+      stale: 30,
+      revalidate: 60,
+      expire: 300,
+    },
+    ipoIssue: {
+      stale: 30,
+      revalidate: 60,
+      expire: 300,
+    },
+    ipoHistory: {
+      stale: 60,
+      revalidate: 120,
+      expire: 600,
+    },
+    ipoCalendar: {
+      stale: 30,
+      revalidate: 60,
+      expire: 300,
+    },
+    ipoPromotions: {
+      stale: 30,
+      revalidate: 60,
+      expire: 300,
+    },
+  },
   partialPrefetching: true,
   images: {
     formats: ["image/avif", "image/webp"],

@@ -345,6 +345,9 @@ describe("public IPO catalogue", () => {
       assert.equal(listed.items.find((item) => item.slug === "fixture-polymers")?.registrarName, "Fixture Registrar");
       assert.equal(listed.items.find((item) => item.slug === "fixture-alloys")?.registrarName, null);
       assert.equal(listed.items.find((item) => item.slug === "fixture-polymers")?.allotmentConfirmed, undefined);
+      assert.equal(listed.items.find((item) => item.slug === "fixture-polymers")?.listingGainPercent, null);
+      assert.equal(listed.items.find((item) => item.slug === "fixture-polymers")?.cmpRupees, null);
+      assert.equal(listed.items.find((item) => item.slug === "fixture-polymers")?.currentGainPercent, null);
 
       const sme = pageSchema(ipoSummarySchema).parse(await json(running, "/api/v1/ipos?board=sme"));
       assert.deepEqual(sme.items.map((item) => item.slug), ["fixture-alloys"]);
@@ -537,6 +540,83 @@ describe("public IPO catalogue", () => {
       assert.equal(gated.count, beforeGate);
       assert.equal(gated.count, 0);
     });
+  });
+
+  it("includes stored listing market fields on catalogue summaries", async () => {
+    const logger = createLogger({ level: "error", service: "test", sink: () => undefined });
+    const { setCatalogNow, resetCatalogNow } = await import("./present.ts");
+    setCatalogNow(() => new Date("2026-10-21T06:00:00.000Z"));
+    const listedRow: IpoRecord = {
+      ...ipo({
+        id: "fixture-listed",
+        companyId: "fixture-polymers",
+        board: "mainboard",
+        status: "listed",
+        dates: { openDate: "2026-08-01", closeDate: "2026-08-04", allotmentDate: null, listingDate: "2026-08-10" },
+      }),
+      listing: { issuePriceRupees: 100, listingPriceRupees: 120, gainPercent: 20, listedOn: "2026-08-10" },
+      profile: {
+        refundDate: null,
+        dematCreditDate: null,
+        about: null,
+        description: null,
+        strengths: [],
+        risks: [],
+        promoters: [],
+        objectsOfIssue: { items: [], text: null },
+        sourceFinancials: { unit: null, headers: [], rows: [], text: null },
+        cmpRupees: 130,
+        currentGainPercent: -8.5,
+      },
+    };
+    const zeroRow: IpoRecord = {
+      ...ipo({
+        id: "fixture-listed-zero",
+        companyId: "fixture-alloys",
+        board: "sme",
+        status: "listed",
+        dates: { openDate: "2026-07-01", closeDate: "2026-07-03", allotmentDate: null, listingDate: "2026-07-10" },
+      }),
+      listing: { issuePriceRupees: 80, listingPriceRupees: 80, gainPercent: 0, listedOn: "2026-07-10" },
+      profile: {
+        refundDate: null,
+        dematCreditDate: null,
+        about: null,
+        description: null,
+        strengths: [],
+        risks: [],
+        promoters: [],
+        objectsOfIssue: { items: [], text: null },
+        sourceFinancials: { unit: null, headers: [], rows: [], text: null },
+        cmpRupees: 0,
+        currentGainPercent: 0,
+      },
+    };
+    const running = await startServer(
+      config(),
+      logger,
+      database(fixtureStore({ list: 0, gmp: 0, slug: 0 }, [listedRow, zeroRow])),
+      cacheHandle({ count: 0 }),
+    );
+    try {
+      const page = pageSchema(ipoSummarySchema).parse(await json(running, "/api/v1/ipos?status=listed"));
+      assert.equal(page.page.totalCount, 2);
+      const mainboard = page.items.find((item) => item.slug === "fixture-listed");
+      const sme = page.items.find((item) => item.slug === "fixture-listed-zero");
+      assert.equal(mainboard?.board, "mainboard");
+      assert.equal(mainboard?.listingGainPercent, 20);
+      assert.equal(mainboard?.cmpRupees, 130);
+      assert.equal(mainboard?.currentGainPercent, -8.5);
+      assert.equal(sme?.board, "sme");
+      assert.equal(sme?.listingGainPercent, 0);
+      assert.equal(sme?.cmpRupees, 0);
+      assert.equal(sme?.currentGainPercent, 0);
+      const again = pageSchema(ipoSummarySchema).parse(await json(running, "/api/v1/ipos?status=listed"));
+      assert.equal(again.items.find((item) => item.slug === "fixture-listed")?.cmpRupees, 130);
+    } finally {
+      resetCatalogNow();
+      await running.shutdown();
+    }
   });
 
   it("returns an empty page when the store has no IPOs", async () => {

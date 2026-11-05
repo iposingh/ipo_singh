@@ -78,6 +78,15 @@ export const ipoSummarySchema = z
     listingDate: ipoDatesSchema.shape.listingDate.optional(),
     listingPriceRupees: z.number().finite().nonnegative().nullable().optional(),
     listingIssuePriceRupees: z.number().finite().nonnegative().nullable().optional(),
+    /**
+     * Stored listing gain percent from the issue record.
+     * Used when listing gain cannot be calculated from issue and listing prices (for example a zero issue price).
+     */
+    listingGainPercent: percentSchema.optional(),
+    /** Current market price from the stored issue profile. Absent or null when unavailable. */
+    cmpRupees: z.number().finite().nonnegative().nullable().optional(),
+    /** Gain or loss since listing from the stored issue profile. Absent or null when unavailable. */
+    currentGainPercent: percentSchema.optional(),
     registrarName: z.string().trim().min(1).max(200).nullable().optional(),
     allotmentUrl: nullableHttpUrlSchema.optional(),
     /** True only when a stored source confirms the allotment result. A passed date is not confirmation. */

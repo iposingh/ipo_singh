@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Ipo } from "@ipo-singh/contracts";
+import type { Ipo, IpoSummary } from "@ipo-singh/contracts";
 import { freshnessLabel, isPresentNumber } from "@ipo-singh/core";
 import { InrPrice } from "@/components/financial/inr-price";
 import { LastUpdated } from "@/components/financial/ist-date-time";
@@ -14,38 +14,45 @@ import { BoardBadge, IndiaDate } from "@/features/ipos/ipo-facts";
 import { WatchlistButton } from "@/features/watchlist/watchlist-button";
 import { actualListingPerformance } from "@/features/ipos/listed";
 
+type ListedRow = Ipo | IpoSummary;
+
+function listingDateOf(ipo: ListedRow): string | null {
+  if ("dates" in ipo) return ipo.dates.listingDate;
+  return ipo.listingDate ?? null;
+}
+
 function updatedAt(value: string | null): Date | null {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function IssuePrice({ ipo }: { ipo: Ipo }) {
+function IssuePrice({ ipo }: { ipo: ListedRow }) {
   const price = actualListingPerformance(ipo).issuePriceRupees;
   return isPresentNumber(price) ? <InrPrice value={price} /> : <MissingValue label="Issue price unavailable" />;
 }
 
-function ListingPrice({ ipo }: { ipo: Ipo }) {
+function ListingPrice({ ipo }: { ipo: ListedRow }) {
   const price = actualListingPerformance(ipo).listingPriceRupees;
   return isPresentNumber(price) ? <InrPrice value={price} /> : <MissingValue label="Listing price unavailable" />;
 }
 
-function ListingGain({ ipo }: { ipo: Ipo }) {
+function ListingGain({ ipo }: { ipo: ListedRow }) {
   const gain = actualListingPerformance(ipo).gainPercent;
   return gain !== null ? <SignedChange percent={gain} /> : <MissingValue label="Listing gain unavailable" />;
 }
 
-function CurrentPrice({ ipo }: { ipo: Ipo }) {
+function CurrentPrice({ ipo }: { ipo: ListedRow }) {
   const price = actualListingPerformance(ipo).currentPriceRupees;
   return isPresentNumber(price) ? <InrPrice value={price} /> : <MissingValue label="Current price unavailable" />;
 }
 
-function SinceListing({ ipo }: { ipo: Ipo }) {
+function SinceListing({ ipo }: { ipo: ListedRow }) {
   const gain = actualListingPerformance(ipo).sinceListingPercent;
   return gain !== null ? <SignedChange percent={gain} /> : <MissingValue label="Change since listing unavailable" />;
 }
 
-function SourceFacts({ ipo }: { ipo: Ipo }) {
+function SourceFacts({ ipo }: { ipo: ListedRow }) {
   return (
     <div className="grid gap-1 text-sm">
       <span>{ipo.provenance.sourceName}</span>
@@ -55,7 +62,7 @@ function SourceFacts({ ipo }: { ipo: Ipo }) {
   );
 }
 
-const columns: readonly TableColumn<Ipo>[] = [
+const columns: readonly TableColumn<ListedRow>[] = [
   {
     id: "company",
     header: "Company",
@@ -68,7 +75,7 @@ const columns: readonly TableColumn<Ipo>[] = [
   { id: "board", header: "Category", cell: (ipo) => <BoardBadge board={ipo.board} /> },
   { id: "issue", header: "Issue price", numeric: true, cell: (ipo) => <IssuePrice ipo={ipo} /> },
   { id: "listing-price", header: "Listing price", numeric: true, cell: (ipo) => <ListingPrice ipo={ipo} /> },
-  { id: "listing-date", header: "Listing date", cell: (ipo) => <IndiaDate value={ipo.dates.listingDate} /> },
+  { id: "listing-date", header: "Listing date", cell: (ipo) => <IndiaDate value={listingDateOf(ipo)} /> },
   { id: "gain", header: "Listing gain", numeric: true, cell: (ipo) => <ListingGain ipo={ipo} /> },
   { id: "current", header: "Current price", numeric: true, cell: (ipo) => <CurrentPrice ipo={ipo} /> },
   { id: "since", header: "Since listing", numeric: true, cell: (ipo) => <SinceListing ipo={ipo} /> },
@@ -81,7 +88,7 @@ export function ListedResults({
   emptyTitle,
   emptyDescription,
 }: {
-  items: readonly Ipo[];
+  items: readonly ListedRow[];
   emptyTitle: string;
   emptyDescription: string;
 }) {
@@ -118,7 +125,7 @@ export function ListedResults({
                 </div>
                 <div>
                   <dt className="text-muted">Listing date</dt>
-                  <dd><IndiaDate value={ipo.dates.listingDate} /></dd>
+                  <dd><IndiaDate value={listingDateOf(ipo)} /></dd>
                 </div>
                 <div>
                   <dt className="text-muted">Listing gain</dt>

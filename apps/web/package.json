@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/navigation/*.test.ts lib/seo/*.test.ts lib/auth/*.test.ts lib/watchlist/*.test.ts lib/notifications/*.test.ts lib/admin/*.test.ts features/calendar/*.test.ts features/compare/*.test.ts features/ipos/*.test.ts features/ipo-details/*.test.ts features/search/*.test.ts features/promotions/*.test.ts features/auth/*.test.ts features/allotment/*.test.ts"
+    "test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/api/*.test.ts lib/navigation/*.test.ts lib/seo/*.test.ts lib/auth/*.test.ts lib/watchlist/*.test.ts lib/notifications/*.test.ts lib/admin/*.test.ts features/calendar/*.test.ts features/compare/*.test.ts features/home/*.test.ts features/ipos/*.test.ts features/ipo-details/*.test.ts features/search/*.test.ts features/promotions/*.test.ts features/auth/*.test.ts features/allotment/*.test.ts"
   },
   "dependencies": {
     "@ipo-singh/contracts": "0.1.0",

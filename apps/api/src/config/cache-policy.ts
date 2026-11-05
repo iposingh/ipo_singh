@@ -38,7 +38,8 @@ const clockSchema = z.string().trim().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 const cacheEnvSchema = z
   .object({
-    CACHE_KEY_VERSION: z.coerce.number().int().min(1).max(100).default(1),
+    // Bumped when public catalogue-facts summary shape gains additive listing fields.
+    CACHE_KEY_VERSION: z.coerce.number().int().min(1).max(100).default(2),
     CACHE_TTL_GMP_MS: durationSchema.default(120 * 60 * 1000),
     CACHE_TTL_SUBSCRIPTION_MS: durationSchema.default(60 * 60 * 1000),
     CACHE_TTL_SUBSCRIPTION_CLOSING_MS: durationSchema.default(30 * 60 * 1000),

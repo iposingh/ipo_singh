@@ -53,7 +53,7 @@ export type CalendarCatalogResult =
   | { status: "unavailable" };
 
 export type ListedCatalogResult =
-  | { status: "ready"; ipos: readonly Ipo[]; truncated: boolean }
+  | { status: "ready"; ipos: readonly IpoSummary[]; truncated: boolean }
   | { status: "unavailable" };
 
 export type SitemapIssue = {
@@ -271,6 +271,11 @@ function prepareSearch(
   return { ok: true, query: { ...request, q: text.text } };
 }
 
+/** Public search gate used before cached catalogue reads so short/invalid queries never enter the cache. */
+export function inspectSearchQuery(query: string | SearchCatalogQuery): { ok: true; query: SearchCatalogQuery } | { ok: false; status: "short" | "invalid" } {
+  return prepareSearch(query);
+}
+
 /** One stored page. A short query, disallowed text, or an inverted date range is not sent. */
 export async function loadSearchCatalog(query: string | SearchCatalogQuery, deps: CatalogDeps = {}): Promise<SearchCatalogResult> {
   const prepared = prepareSearch(query);
@@ -394,11 +399,15 @@ export async function loadSitemapCatalog(deps: CatalogDeps = {}): Promise<Sitema
   return { status: "ready", issues, truncated: cursor !== null };
 }
 
-/** Listed issues from IPO Singh, then each stored document. GMP history is not requested. */
+/**
+ * Listed catalogue summaries from IPO Singh.
+ * Uses list pages only — does not hydrate `/api/v1/ipos/{slug}` documents (avoids N+1 detail calls).
+ * GMP history is not requested.
+ */
 export async function loadListedCatalog(deps: CatalogDeps = {}): Promise<ListedCatalogResult> {
   const origin = ipoSinghApiOrigin(deps.origin);
   if (!origin) return { status: "unavailable" };
-  const slugs: string[] = [];
+  const ipos: IpoSummary[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < maxPages; page += 1) {
     const params = new URLSearchParams({
@@ -413,14 +422,12 @@ export async function loadListedCatalog(deps: CatalogDeps = {}): Promise<ListedC
     const parsed = listPageSchema.safeParse(response.body);
     if (!parsed.success) return { status: "unavailable" };
     for (const item of parsed.data.items) {
-      if (item.status === "listed" && stableIdSchema.safeParse(item.slug).success) slugs.push(item.slug);
+      if (item.status === "listed" && stableIdSchema.safeParse(item.slug).success) ipos.push(item);
     }
     cursor = parsed.data.page.nextCursor;
     if (!cursor) break;
   }
-  const hydrated = await hydrate(origin, slugs, deps.fetch);
-  if (hydrated.status !== "ready") return { status: "unavailable" };
-  return { status: "ready", ipos: hydrated.ipos, truncated: cursor !== null };
+  return { status: "ready", ipos, truncated: cursor !== null };
 }
 
 export async function loadDetailCatalog(
