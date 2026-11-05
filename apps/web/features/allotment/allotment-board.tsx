@@ -116,7 +116,7 @@ function AllotmentCard({ ipo, today, confirmed }: { ipo: IpoSummary; today: stri
         {confirmed ? <Badge tone="positive">Allotment Out</Badge> : <Badge tone="warning">{passed ? "Result not confirmed" : "Allotment Awaited"}</Badge>}
       </div>
       <h2 className="text-base font-semibold">
-        <Link href={`/ipos/${ipo.slug}`} className="underline-offset-2 hover:underline">
+        <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="underline-offset-2 hover:underline">
           {ipo.companyName}
         </Link>
       </h2>

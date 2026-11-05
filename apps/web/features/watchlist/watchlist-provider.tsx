@@ -2,6 +2,7 @@
 
 import { watchlistItemSchema, watchlistResponseSchema, type WatchlistItem } from "@ipo-singh/contracts";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { hasBrowserAuthHint } from "@/features/auth/browser-auth-hint";
 import { readCsrfToken } from "@/features/auth/csrf";
 
 type WatchlistStatus = "loading" | "guest" | "ready" | "error";
@@ -24,6 +25,8 @@ function csrfHeaders(): Headers {
 }
 
 async function readItems(): Promise<{ status: "guest" | "error" } | { status: "ready"; items: WatchlistItem[] }> {
+  // Guests have no readable CSRF cookie; avoid a guaranteed 401 on every page load.
+  if (!hasBrowserAuthHint()) return { status: "guest" };
   let response = await fetch("/api/watchlist", { headers: { accept: "application/json" }, cache: "no-store" });
   if (response.status === 401 && readCsrfToken(document.cookie)) {
     const refreshed = await fetch("/api/auth/refresh", { method: "POST", headers: csrfHeaders(), cache: "no-store" });

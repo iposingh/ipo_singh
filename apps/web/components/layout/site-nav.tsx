@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { shouldPrefetchPath } from "@/lib/navigation/prefetch";
 import { isCurrentPath, type SiteRoute } from "@/lib/navigation/routes";
 
 type SiteNavProps = {
@@ -39,6 +40,7 @@ function SiteNavList({
             <li key={item.href}>
               <Link
                 href={item.href}
+                prefetch={shouldPrefetchPath(item.href)}
                 aria-current={current ? "page" : undefined}
                 onClick={onNavigate}
                 className={cn(

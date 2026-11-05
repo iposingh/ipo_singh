@@ -105,6 +105,7 @@ function DayCell({
   return (
     <Link
       href={calendarPath({ ...query, day: date })}
+      prefetch={false}
       aria-current={selected ? "date" : undefined}
       aria-label={summary ? `${date}, ${summary}` : `${date}, no events`}
       className={`flex h-16 flex-col gap-1 overflow-hidden border-b border-r border-border p-1.5 outline-none hover:bg-background focus-visible:ring-2 focus-visible:ring-primary-solid sm:h-28 sm:p-2 ${

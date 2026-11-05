@@ -68,7 +68,7 @@ export function IpoDashboardCard({
             <StageMark stage={stage} showOpen={showOpenStage} listed={listed} />
           </div>
           <h3 className="text-base font-semibold tracking-tight text-foreground">
-            <Link href={`/ipos/${ipo.slug}`} className="underline-offset-2 hover:underline">
+            <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="underline-offset-2 hover:underline">
               {ipo.companyName}
             </Link>
           </h3>

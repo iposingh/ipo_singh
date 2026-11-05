@@ -51,7 +51,7 @@ export function IpoBrowseView({ board, query, page = 1, sections = [], list = nu
         description={board === "mainboard" ? "Mainboard issues. SME issues stay on their own page." : "SME issues, listed separately from Mainboard."}
       />
       <p className="text-sm text-muted">
-        <Link href={`/ipos/${other}`} className="font-medium text-link underline-offset-2 hover:underline">
+        <Link href={`/ipos/${other}`} prefetch={false} className="font-medium text-link underline-offset-2 hover:underline">
           {boardBrowseTitle(other)}
         </Link>
       </p>

@@ -15,7 +15,7 @@ export function SiteHeader() {
         <div className="lg:hidden">
           <MobileMenu />
         </div>
-        <Link href="/" aria-label="IPO Singh home" className="shrink-0 rounded-control">
+        <Link href="/" prefetch={false} aria-label="IPO Singh home" className="shrink-0 rounded-control">
           <BrandLogo width={148} priority />
         </Link>
         <div className="ml-auto hidden min-w-0 items-center gap-3 lg:flex">

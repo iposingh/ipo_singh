@@ -156,7 +156,7 @@ function CompareMatches({
           return (
             <li key={item.slug} className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-border bg-surface px-4 py-3">
               <div className="grid gap-1">
-                <Link href={`/ipos/${item.slug}`} className="font-medium underline-offset-2 hover:underline">
+                <Link href={`/ipos/${item.slug}`} prefetch={false} className="font-medium underline-offset-2 hover:underline">
                   {item.companyName}
                 </Link>
                 <div className="flex flex-wrap gap-2">

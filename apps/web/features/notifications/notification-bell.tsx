@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { IstDateTime } from "@/components/financial/ist-date-time";
+import { hasBrowserAuthHint } from "@/features/auth/browser-auth-hint";
 import { markNotificationRead, readNotificationPage, readUnreadCount } from "@/features/notifications/notification-client";
 import type { NotificationItem } from "@ipo-singh/contracts";
 
@@ -21,6 +22,10 @@ export function NotificationBell() {
   useEffect(() => {
     let cancelled = false;
     function refresh() {
+      if (!hasBrowserAuthHint()) {
+        if (!cancelled) setGuest(true);
+        return;
+      }
       void readUnreadCount().then((count) => {
         if (cancelled) return;
         if (count === "guest") {
@@ -31,6 +36,7 @@ export function NotificationBell() {
           setError(true);
           return;
         }
+        setGuest(false);
         setUnread(count);
       });
     }

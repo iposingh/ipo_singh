@@ -8,6 +8,7 @@ import {
   type AccountPreferences,
   type NotificationItem,
 } from "@ipo-singh/contracts";
+import { hasBrowserAuthHint } from "@/features/auth/browser-auth-hint";
 import { readCsrfToken } from "@/features/auth/csrf";
 
 export function notificationHeaders(): Headers {
@@ -24,6 +25,7 @@ async function refreshOnce(): Promise<boolean> {
 }
 
 export async function readNotificationPage(cursor?: string | null): Promise<"guest" | "error" | { items: NotificationItem[]; nextCursor: string | null }> {
+  if (!hasBrowserAuthHint()) return "guest";
   const search = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
   let response = await fetch(`/api/notifications${search}`, { headers: { accept: "application/json" }, cache: "no-store" });
   if (response.status === 401 && (await refreshOnce())) {
@@ -36,6 +38,7 @@ export async function readNotificationPage(cursor?: string | null): Promise<"gue
 }
 
 export async function readUnreadCount(): Promise<number | "guest" | "error"> {
+  if (!hasBrowserAuthHint()) return "guest";
   let response = await fetch("/api/notifications/unread-count", { headers: { accept: "application/json" }, cache: "no-store" });
   if (response.status === 401 && (await refreshOnce())) {
     response = await fetch("/api/notifications/unread-count", { headers: { accept: "application/json" }, cache: "no-store" });
@@ -65,6 +68,7 @@ export async function markAllNotificationsRead(): Promise<boolean> {
 }
 
 export async function readAlertPreferences(): Promise<AccountPreferences | "guest" | "error"> {
+  if (!hasBrowserAuthHint()) return "guest";
   const response = await fetch("/api/auth/session", { headers: { accept: "application/json" }, cache: "no-store" });
   if (response.status === 401) return "guest";
   const parsed = accountSessionResponseSchema.safeParse(await response.json().catch(() => null));

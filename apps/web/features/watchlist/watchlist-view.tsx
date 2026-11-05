@@ -133,7 +133,7 @@ function WatchlistRow({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-2">
             <h2 className="text-lg font-semibold">
-              <Link href={`/ipos/${ipo.slug}`} className="underline-offset-2 hover:underline">
+              <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="underline-offset-2 hover:underline">
                 {ipo.companyName}
               </Link>
             </h2>

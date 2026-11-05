@@ -26,7 +26,7 @@ export default function BlogIndexPage() {
             <li key={article.id} className="rounded-panel border border-border bg-surface p-4">
               <p className="text-xs font-medium text-muted">{blogCategoryLabel[article.category]}</p>
               <h2 className="mt-1 text-lg font-semibold">
-                <Link href={`/blog/${article.slug}`} className="underline-offset-2 hover:underline">
+                <Link href={`/blog/${article.slug}`} prefetch={false} className="underline-offset-2 hover:underline">
                   {article.title}
                 </Link>
               </h2>

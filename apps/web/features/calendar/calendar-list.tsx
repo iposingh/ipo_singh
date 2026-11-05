@@ -46,7 +46,7 @@ export function CalendarList({ entries, credit = true }: { entries: readonly Cal
             {group.entries.map((entry) => (
               <li key={`${entry.date}:${entry.event}:${entry.ipo.slug}`} className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="grid min-w-0 gap-1">
-                  <Link href={`/ipos/${entry.ipo.slug}`} className="font-medium underline-offset-2 hover:underline">
+                  <Link href={`/ipos/${entry.ipo.slug}`} prefetch={false} className="font-medium underline-offset-2 hover:underline">
                     {entry.ipo.companyName}
                   </Link>
                   <p className="text-sm text-muted">

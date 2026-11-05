@@ -67,7 +67,7 @@ const columns: readonly TableColumn<ListedRow>[] = [
     id: "company",
     header: "Company",
     cell: (ipo) => (
-      <Link href={`/ipos/${ipo.slug}`} className="font-medium underline-offset-2 hover:underline">
+      <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="font-medium underline-offset-2 hover:underline">
         {ipo.companyName}
       </Link>
     ),
@@ -106,7 +106,7 @@ export function ListedResults({
           <li key={ipo.id}>
             <Card className="grid gap-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <Link href={`/ipos/${ipo.slug}`} className="text-lg font-semibold underline-offset-2 hover:underline">
+                <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="text-lg font-semibold underline-offset-2 hover:underline">
                   {ipo.companyName}
                 </Link>
                 <div className="flex flex-wrap items-center gap-2">

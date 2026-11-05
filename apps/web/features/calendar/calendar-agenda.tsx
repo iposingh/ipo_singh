@@ -33,7 +33,7 @@ export function CalendarAgenda({ date, entries }: { date: string; entries: reado
                 <li key={`${entry.event}:${entry.ipo.slug}`} className="rounded-panel border border-border bg-surface px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="grid min-w-0 gap-1">
-                      <Link href={`/ipos/${entry.ipo.slug}`} className="font-medium underline-offset-2 hover:underline">
+                      <Link href={`/ipos/${entry.ipo.slug}`} prefetch={false} className="font-medium underline-offset-2 hover:underline">
                         {entry.ipo.companyName}
                       </Link>
                       <p className="text-sm text-muted">

@@ -13,7 +13,7 @@ const columns: readonly TableColumn<Ipo>[] = [
     id: "company",
     header: "Company",
     cell: (ipo) => (
-      <Link href={`/ipos/${ipo.slug}`} className="font-medium underline-offset-2 hover:underline">
+      <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="font-medium underline-offset-2 hover:underline">
         {ipo.companyName}
       </Link>
     ),

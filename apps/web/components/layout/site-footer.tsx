@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { shouldPrefetchPath } from "@/lib/navigation/prefetch";
 import { footerNav } from "@/lib/navigation/routes";
 import { indexablePaths } from "@/lib/seo/site";
 
@@ -15,7 +16,7 @@ export function SiteFooter() {
           <ul className="flex flex-wrap gap-x-4 gap-y-2">
             {discover.map((item) => (
               <li key={item.path}>
-                <Link href={item.path} className="inline-flex min-h-11 items-center text-sm text-muted hover:text-foreground">
+                <Link href={item.path} prefetch={shouldPrefetchPath(item.path)} className="inline-flex min-h-11 items-center text-sm text-muted hover:text-foreground">
                   {item.label}
                 </Link>
               </li>
@@ -26,7 +27,7 @@ export function SiteFooter() {
           <ul className="flex flex-wrap gap-x-4 gap-y-2">
             {footerNav.map((item) => (
               <li key={item.href}>
-                <Link href={item.href} className="inline-flex min-h-11 items-center text-sm text-muted hover:text-foreground">
+                <Link href={item.href} prefetch={shouldPrefetchPath(item.href)} className="inline-flex min-h-11 items-center text-sm text-muted hover:text-foreground">
                   {item.label}
                 </Link>
               </li>

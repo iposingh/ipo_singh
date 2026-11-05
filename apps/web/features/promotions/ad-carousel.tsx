@@ -165,7 +165,7 @@ function SlideLink({ slide, children }: { slide: AdSlide; children: ReactNode })
   const className = "group relative block h-full text-white focus-visible:outline-2 focus-visible:outline-offset-[-4px]";
   if (slide.href.startsWith("/")) {
     return (
-      <Link href={slide.href} className={className}>
+      <Link href={slide.href} prefetch={false} className={className}>
         {children}
       </Link>
     );

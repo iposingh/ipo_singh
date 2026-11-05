@@ -15,7 +15,7 @@ export function IpoCard({ ipo }: { ipo: Ipo }) {
     <Card className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h3 className="text-lg font-semibold tracking-tight">
-          <Link href={`/ipos/${ipo.slug}`} className="underline-offset-2 hover:underline">
+          <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="underline-offset-2 hover:underline">
             {ipo.companyName}
           </Link>
         </h3>
