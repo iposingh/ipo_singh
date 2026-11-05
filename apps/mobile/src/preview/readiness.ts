@@ -25,12 +25,12 @@ const mobileRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 /** Expo Router paths exercised during preview smoke checks. */
 export const previewRoutes = [
   "/",
-  "/(tabs)/ipos",
-  "/(tabs)/watchlist",
+  "/(tabs)/sme",
+  "/(tabs)/calendar",
   "/(tabs)/notifications",
   "/(tabs)/settings",
-  "/(tabs)/calendar",
-  "/(tabs)/sme",
+  "/(tabs)/ipos",
+  "/(tabs)/watchlist",
   "/search",
   "/compare",
   "/allotment",
@@ -39,7 +39,7 @@ export const previewRoutes = [
   "/news/[slug]",
 ] as const;
 
-export const previewPrimaryTabs = ["Home", "IPOs", "Watchlist", "Alerts", "Settings"] as const;
+export const previewPrimaryTabs = ["Mainboard", "SME", "Calendar", "Alerts", "Settings"] as const;
 
 export type PreviewEnvironmentGuide = {
   appEnv: "development" | "preview" | "production";

@@ -17,7 +17,8 @@ export function BrandLogo({ width, className, priority = false }: BrandLogoProps
   return (
     <span
       className={cn(
-        "inline-flex max-w-full align-middle dark:rounded-panel dark:bg-white dark:px-3 dark:py-2",
+        /* Horizontal lockup has a light plate; dark mode keeps a compact white cradle so brand greens are not recolored. */
+        "inline-flex max-w-full align-middle dark:rounded-control dark:border dark:border-border dark:bg-white dark:px-2.5 dark:py-1.5 dark:shadow-card",
         className,
       )}
     >

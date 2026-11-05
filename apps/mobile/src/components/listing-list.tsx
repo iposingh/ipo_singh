@@ -1,10 +1,10 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import type { Board, IpoSummary } from "@ipo-singh/contracts";
 import { router } from "expo-router";
 import { RefreshControl, SectionList, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { sectionIdsForBrowseMode, type BrowseMode } from "../catalogue/browse-mode";
 import { warmCatalogueIssue } from "../catalogue/client";
-import { dashboardCounts } from "../catalogue/dashboard-counts";
 import { issueRoute } from "../catalogue/routes";
 import { listingSections, type ListingSectionId } from "../catalogue/sections";
 import type { BoardSectionState } from "../catalogue/board-state";
@@ -13,8 +13,7 @@ import { screenContentInset } from "../design/layout";
 import { mobileTheme } from "../theme/theme";
 import { useTheme } from "../theme/provider";
 import { AppText } from "./app-text";
-import { BoardSwitcher } from "./board-switcher";
-import { DashboardSummary } from "./dashboard-summary";
+import { BrowseModeSwitcher } from "./browse-mode-switcher";
 import { EmptyState } from "./empty-state";
 import { ErrorState } from "./error-state";
 import { IPOCard } from "./ipo-card";
@@ -49,7 +48,6 @@ export function ListingList({
   notice,
   onRefresh,
   onLoadMore,
-  onBoardChange,
 }: {
   board: Board;
   sections: readonly BoardSectionState[];
@@ -57,30 +55,34 @@ export function ListingList({
   notice: string | null;
   onRefresh: () => void;
   onLoadMore: (id: ListingSectionId) => void;
-  /** When set, the home dashboard shows Mainboard / SME switching. */
-  onBoardChange?: (board: Board) => void;
 }) {
   const { palette } = useTheme();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const inset = screenContentInset(width);
-  const counts = dashboardCounts(sections);
-  const listSections: ListSection[] = listingSections(board).map((section) => {
-    const state = sections.find((item) => item.id === section.id);
-    return {
-      id: section.id,
-      title: section.title,
-      description: section.description,
-      emptyTitle: section.emptyTitle,
-      emptyDescription: section.emptyDescription,
-      phase: state?.phase ?? "loading",
-      message: state?.message ?? null,
-      nextCursor: state?.nextCursor ?? null,
-      loadingMore: state?.loadingMore ?? false,
-      moreError: state?.moreError ?? null,
-      data: state?.items ?? [],
-    };
-  });
+  const [browseMode, setBrowseMode] = useState<BrowseMode>("current");
+  const visibleIds = useMemo(() => new Set(sectionIdsForBrowseMode(browseMode)), [browseMode]);
+  const listedMode = browseMode === "listed";
+
+  const listSections: ListSection[] = listingSections(board)
+    .filter((section) => visibleIds.has(section.id))
+    .map((section) => {
+      const state = sections.find((item) => item.id === section.id);
+      return {
+        id: section.id,
+        title: section.title,
+        description: section.description,
+        emptyTitle: section.emptyTitle,
+        emptyDescription: section.emptyDescription,
+        phase: state?.phase ?? "loading",
+        message: state?.message ?? null,
+        nextCursor: state?.nextCursor ?? null,
+        loadingMore: state?.loadingMore ?? false,
+        moreError: state?.moreError ?? null,
+        data: state?.items ?? [],
+      };
+    });
+
   const retrievedAt = listSections
     .flatMap((section) => section.data.map((ipo) => ipo.provenance.retrievedAt))
     .reduce<string | null>((latest, value) => {
@@ -113,12 +115,9 @@ export function ListingList({
       }}
       ListHeaderComponent={
         <View style={{ gap: mobileTheme.spacing[3], marginBottom: mobileTheme.spacing[4] }}>
-          <SectionHeader
-            title="IPO Singh"
-            description={`${boardLabel(board)} IPO dashboard. Figures come from the IPO Singh API.`}
-          />
-          {onBoardChange ? <BoardSwitcher board={board} onChange={onBoardChange} /> : null}
-          <DashboardSummary counts={counts} />
+          <SectionHeader title="IPO Singh" description={`${boardLabel(board)} IPOs from the IPO Singh API.`} />
+          <BrowseModeSwitcher mode={browseMode} onChange={setBrowseMode} />
+          {/* Advertisement carousel must sit immediately below the segment and before every IPO card. */}
           <PromotionCarousel refreshing={refreshing} />
           {notice ? (
             notice.toLowerCase().includes("offline") ? (
@@ -131,12 +130,14 @@ export function ListingList({
           ) : null}
         </View>
       }
-      renderSectionHeader={({ section }) => (
-        <View style={{ marginTop: mobileTheme.spacing[2], marginBottom: mobileTheme.spacing[3] }}>
-          <SectionHeader title={section.title} description={section.description} />
-        </View>
-      )}
-      renderItem={({ item, section }) => <ListingRow item={item} listed={section.id === "listed"} />}
+      renderSectionHeader={({ section }) =>
+        listedMode ? null : (
+          <View style={{ marginTop: mobileTheme.spacing[2], marginBottom: mobileTheme.spacing[3] }}>
+            <SectionHeader title={section.title} description={section.description} />
+          </View>
+        )
+      }
+      renderItem={({ item }) => <ListingRow item={item} listed={listedMode} />}
       renderSectionFooter={({ section }) => (
         <View style={{ gap: mobileTheme.spacing[3], marginBottom: mobileTheme.spacing[6] }}>
           {section.phase === "loading" ? <LoadingSkeleton label={`Loading ${section.title}`} /> : null}
@@ -178,7 +179,7 @@ const ListingRow = memo(function ListingRow({ item, listed }: { item: IpoSummary
   }, [item.slug]);
   return (
     <View style={{ marginBottom: mobileTheme.spacing[4], gap: mobileTheme.spacing[2] }}>
-      <IPOCard ipo={item} mode={listed ? "listed" : "active"} hideBoard onPress={onPress} />
+      <IPOCard ipo={item} mode={listed ? "listed" : "active"} onPress={onPress} />
       <WatchSaveButton ipo={item} />
     </View>
   );

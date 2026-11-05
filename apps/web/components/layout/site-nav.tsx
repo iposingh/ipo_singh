@@ -46,7 +46,9 @@ function SiteNavList({
                 className={cn(
                   "inline-flex items-center rounded-control px-3 text-sm font-medium",
                   compact ? "h-11" : "h-10",
-                  current ? "bg-surface text-foreground" : "text-muted hover:bg-surface hover:text-foreground",
+                  current
+                    ? "bg-accent-subtle text-foreground shadow-card ring-1 ring-[color:var(--ds-border-subtle)]"
+                    : "text-muted hover:bg-surface-muted hover:text-foreground",
                   linkClassName,
                 )}
               >

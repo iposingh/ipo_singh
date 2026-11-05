@@ -68,7 +68,7 @@ export const iosDeploymentTarget = "16.4";
 
 /** Google Play target/compile SDK pinned for reproducible production AABs (API 36 / Android 16). */
 export const androidTargetSdkVersion = 36;
-export const androidCompileSdkVersion = 36;
+export const androidCompileSdkVersion = 37;
 export const androidMinSdkVersion = 24;
 
 /**

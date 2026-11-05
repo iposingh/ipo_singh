@@ -60,7 +60,7 @@ export function IpoDashboardCard({
       ? allotmentLink(ipo.allotmentUrl, { confirmed: stage === "allotment-out", registrarName: ipo.registrarName })
       : null;
   return (
-    <article className="grid gap-3 rounded-panel border border-border bg-surface p-4 shadow-card">
+    <article className="ds-surface-interactive grid gap-3 rounded-panel border border-border bg-surface p-4 shadow-card transition-[border-color,box-shadow,background] duration-[var(--ds-duration-fast)] ease-[var(--ds-easing-standard)]">
       <div className="flex items-start justify-between gap-3">
         <div className="grid min-w-0 gap-1">
           <div className="flex flex-wrap items-center gap-2">

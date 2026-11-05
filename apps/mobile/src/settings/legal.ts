@@ -37,11 +37,17 @@ export const legalPages: readonly {
   },
   {
     id: "contact",
-    label: "Contact Developer",
+    label: "Contact Us",
     path: "/contact",
     summary: `Contact the IPO Singh developer at ${developerContactEmail}. The app opens your mail app; it does not send messages itself.`,
   },
 ] as const;
+
+/** Public website URL shared from Settings → Share with friends. */
+export const shareWithFriendsUrl = "https://iposingh.com";
+
+export const shareWithFriendsMessage =
+  "Explore Indian IPOs with IPO Singh — Mainboard, SME, calendars, and issue details in one place.\nhttps://iposingh.com";
 
 function siteOrigin(site: string | undefined, appEnv: AppEnvironment): string | null {
   const raw = site?.trim() ?? "";

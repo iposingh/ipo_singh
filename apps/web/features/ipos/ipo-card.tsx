@@ -12,7 +12,7 @@ import { WatchlistButton } from "@/features/watchlist/watchlist-button";
 export function IpoCard({ ipo }: { ipo: Ipo }) {
   const updatedAt = providerObservedAt(ipo);
   return (
-    <Card className="grid gap-4">
+    <Card interactive className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h3 className="text-lg font-semibold tracking-tight">
           <Link href={`/ipos/${ipo.slug}`} prefetch={false} className="underline-offset-2 hover:underline">

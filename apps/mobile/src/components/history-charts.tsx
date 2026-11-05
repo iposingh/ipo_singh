@@ -124,13 +124,14 @@ const ObservationChart = memo(function ObservationChart({
               ? palette.positive
               : source?.low
                 ? palette.negative
-                : palette.primarySolid,
+                : palette.link,
         onPress: () => {
           if (source) setSelected(source.tooltip);
         },
       };
     }),
-    color: palette.primarySolid,
+    /** Brand green for series — lime stays reserved for CTAs / selected controls. */
+    color: palette.link,
     thickness: 2,
     curved: false,
     hideDataPoints: hidePoints,
@@ -163,7 +164,7 @@ const ObservationChart = memo(function ObservationChart({
             isAnimated={false}
             animateOnDataChange={false}
             thickness={2}
-            color={palette.primarySolid}
+            color={palette.link}
             yAxisColor={palette.border}
             xAxisColor={palette.border}
             rulesColor={palette.border}
@@ -384,7 +385,7 @@ export function SubscriptionHistoryPanels({
                   data={bars.map((bar) => ({
                     value: bar.times,
                     label: bar.label,
-                    frontColor: palette.primarySolid,
+                    frontColor: palette.link,
                     onPress: () => setSelectedBar(`${bar.label}: ${formatSubscriptionMultiple(bar.times)}`),
                   }))}
                   width={frame}

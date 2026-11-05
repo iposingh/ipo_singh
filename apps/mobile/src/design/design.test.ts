@@ -19,17 +19,22 @@ test("Growth Arrow Green light and dark tokens match the approved palette", () =
   assert.equal(brandColors.cardSurface, "#FFFFFF");
   assert.equal(brandColors.mainText, "#0F172A");
   assert.equal(brandColors.primaryGreen, "#16A34A");
-  assert.equal(brandColors.darkBackground, "#080F1A");
-  assert.equal(brandColors.darkCardSurface, "#142235");
+  assert.equal(brandColors.accentLime, "#C6F432");
+  assert.equal(brandColors.darkBackground, "#080B0C");
+  assert.equal(brandColors.darkCardSurface, "#101A20");
   assert.equal(brandColors.darkMainText, "#F8FAFC");
   assert.equal(brandColors.darkPrimaryGreen, "#22C55E");
   assert.equal(colors.light.background, "#F8FAFC");
   assert.equal(colors.light.surface, "#FFFFFF");
   assert.equal(colors.light.foreground, "#0F172A");
-  assert.equal(colors.dark.background, "#080F1A");
-  assert.equal(colors.dark.surface, "#142235");
+  assert.equal(colors.light.primarySolid, "#15803D");
+  assert.equal(colors.dark.background, "#080B0C");
+  assert.equal(colors.dark.surface, "#101A20");
   assert.equal(colors.dark.foreground, "#F8FAFC");
   assert.equal(colors.dark.primary, "#22C55E");
+  assert.equal(colors.dark.primarySolid, "#C6F432");
+  assert.equal(colors.dark.accent, "#C6F432");
+  assert.equal(colors.dark.borderSubtle, "#24513B");
   assert.equal(mobileTheme.colors.light.primary, "#16A34A");
   assert.equal(mobileTheme.sizing.touchTarget, sizing.touchTarget);
   assert.equal(tokenWeightsMatchTheme(), true);
@@ -47,9 +52,10 @@ test("page padding follows the website breakpoints and the content column stays 
 });
 
 test("primary navigation is five tabs and does not add GMP or Subscription", () => {
-  assert.deepEqual(primaryTabTitles(), ["Home", "IPOs", "Watchlist", "Alerts", "Settings"]);
-  assert.equal(primaryTabs[0]?.accessibilityLabel, "IPO Singh home dashboard");
-  assert.equal(primaryTabs[1]?.route, "ipos");
+  assert.deepEqual(primaryTabTitles(), ["Mainboard", "SME", "Calendar", "Alerts", "Settings"]);
+  assert.equal(primaryTabs[0]?.accessibilityLabel, "Mainboard IPOs");
+  assert.equal(primaryTabs[1]?.route, "sme");
+  assert.equal(primaryTabs[2]?.route, "calendar");
   assert.equal(primaryTabs[4]?.route, "settings");
   assert.equal(primaryTabTitles().includes("GMP"), false);
   assert.equal(primaryTabTitles().includes("Subscription"), false);

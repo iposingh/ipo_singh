@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, AppState, FlatList, Linking, Pressable, View, type LayoutChangeEvent } from "react-native";
 import { issueRoute } from "../catalogue/routes";
@@ -127,6 +127,7 @@ function PromotionSkeleton() {
 function PromotionTrack({ banners, origin }: { banners: MobileBanner[]; origin: string | null }) {
   const { palette, colorScheme } = useTheme();
   const reduced = useReducedMotion();
+  const screenFocused = useIsFocused();
   const listRef = useRef<FlatList<MobileBanner>>(null);
   const scrollMode = useRef<"gesture" | "control" | null>(null);
   const [width, setWidth] = useState(0);
@@ -148,13 +149,13 @@ function PromotionTrack({ banners, origin }: { banners: MobileBanner[]; origin: 
   }, []);
 
   useEffect(() => {
-    if (!autoplayAllowed({ count, paused, reducedMotion: reduced, interacting, focused, appActive })) return;
+    if (!autoplayAllowed({ count, paused, reducedMotion: reduced, interacting, focused, appActive, screenFocused })) return;
     const timer = setInterval(() => {
       scrollMode.current = "control";
       setIndex((value) => nextSlideIndex(value, count, 1));
     }, promotionAutoplayMs);
     return () => clearInterval(timer);
-  }, [appActive, count, focused, interacting, paused, reduced]);
+  }, [appActive, count, focused, interacting, paused, reduced, screenFocused]);
 
   useEffect(() => {
     if (width <= 0) return;

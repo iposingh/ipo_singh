@@ -10,7 +10,7 @@ import { accountNav, primaryNav } from "@/lib/navigation/routes";
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background pt-[env(safe-area-inset-top)]">
+    <header className="sticky top-0 z-30 border-b border-border bg-[color:var(--ds-header-fill)] pt-[env(safe-area-inset-top)] shadow-[var(--ds-shadow-header)] backdrop-blur-md supports-[backdrop-filter]:bg-[color:var(--ds-header-fill)]">
       <div className="mx-auto flex w-full max-w-[70rem] items-center gap-3 px-4 py-2 sm:px-6 lg:px-8">
         <div className="lg:hidden">
           <MobileMenu />

@@ -142,6 +142,8 @@ test("autoplay stays off for one slide, reduced motion, and a paused or hidden c
   assert.equal(autoplayAllowed({ ...playing, interacting: true }), false);
   assert.equal(autoplayAllowed({ ...playing, focused: true }), false);
   assert.equal(autoplayAllowed({ ...playing, appActive: false }), false);
+  assert.equal(autoplayAllowed({ ...playing, screenFocused: false }), false);
+  assert.equal(autoplayAllowed({ ...playing, screenFocused: true }), true);
   assert.equal(nextSlideIndex(0, 3, 1), 1);
   assert.equal(nextSlideIndex(0, 3, -1), 2);
 });

@@ -6,9 +6,13 @@
 @theme inline {
   --color-background: var(--ds-background);
   --color-foreground: var(--ds-foreground);
+  --color-foreground-secondary: var(--ds-foreground-secondary);
   --color-surface: var(--ds-surface);
+  --color-surface-elevated: var(--ds-surface-elevated);
+  --color-surface-muted: var(--ds-surface-muted);
   --color-muted: var(--ds-muted);
   --color-border: var(--ds-border);
+  --color-border-subtle: var(--ds-border-subtle);
   --color-primary: var(--ds-primary);
   --color-primary-solid: var(--ds-primary-solid);
   --color-primary-solid-hover: var(--ds-primary-solid-hover);
@@ -16,6 +20,8 @@
   --color-primary-foreground: var(--ds-primary-foreground);
   --color-bright: var(--ds-bright);
   --color-deep: var(--ds-deep);
+  --color-accent: var(--ds-accent);
+  --color-accent-subtle: var(--ds-accent-subtle);
   --color-link: var(--ds-link);
   --color-positive: var(--ds-positive);
   --color-positive-text: var(--ds-positive-text);
@@ -26,6 +32,8 @@
   --color-negative-foreground: var(--ds-negative-foreground);
   --color-warning: var(--ds-warning);
   --color-warning-text: var(--ds-warning-text);
+  --color-information: var(--ds-information);
+  --color-information-text: var(--ds-information-text);
   --color-ring: var(--ds-ring);
   --color-disabled: var(--ds-disabled);
   --color-disabled-foreground: var(--ds-disabled-foreground);
@@ -34,6 +42,8 @@
   --radius-control: var(--ds-radius-md);
   --radius-panel: var(--ds-radius-lg);
   --shadow-card: var(--ds-shadow-card);
+  --shadow-card-hover: var(--ds-shadow-card-hover);
+  --shadow-header: var(--ds-shadow-header);
 }
 
 :focus-visible {
@@ -45,15 +55,77 @@ html[data-theme="light"] [data-theme-choice="light"],
 html[data-theme="dark"] [data-theme-choice="dark"],
 html[data-theme="system"] [data-theme-choice="system"],
 html:not([data-theme]) [data-theme-choice="system"] {
-  background: var(--ds-surface);
+  background: var(--ds-surface-fill);
   color: var(--ds-foreground);
   box-shadow: var(--ds-shadow-card);
+  border: 1px solid var(--ds-border-accent);
 }
 
 body {
-  background: var(--ds-background);
+  background: var(--ds-page-atmosphere);
+  background-attachment: fixed;
   color: var(--ds-foreground);
   font-family: var(--font-sans), Geist, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Premium primary actions — depth without changing layout. */
+.bg-primary-solid {
+  background-color: var(--ds-primary-solid);
+  background-image: var(--ds-button-fill);
+  box-shadow: var(--ds-button-shadow);
+}
+
+.hover\:bg-primary-solid-hover:hover,
+.bg-primary-solid:hover {
+  background-image: var(--ds-button-fill-hover);
+}
+
+.active\:bg-primary-solid-active:active,
+.bg-primary-solid:active {
+  background-image: var(--ds-button-fill-hover);
+  filter: brightness(0.96);
+}
+
+/* Layered panel / card surfaces used across listings and details. */
+.ds-surface,
+.rounded-panel.border.bg-surface,
+.rounded-panel.border-border.bg-surface {
+  background-color: var(--ds-surface);
+  background-image: var(--ds-surface-fill);
+  border-color: var(--ds-border-accent);
+  box-shadow: var(--ds-shadow-card), var(--ds-inset-highlight);
+}
+
+.ds-surface-interactive:hover,
+.rounded-panel.border.bg-surface.ds-surface-interactive:hover,
+article.rounded-panel.border.bg-surface:hover,
+a.rounded-panel.border.bg-surface:hover {
+  background-image: var(--ds-surface-fill-hover);
+  border-color: var(--ds-border-accent-hover);
+  box-shadow: var(--ds-shadow-card-hover), var(--ds-inset-highlight);
+}
+
+/* Form controls share the premium charcoal / white fill. */
+.ds-control,
+input.rounded-control.border.bg-surface,
+select.rounded-control.border.bg-surface,
+textarea.rounded-control.border.bg-surface {
+  background-color: var(--ds-surface);
+  background-image: var(--ds-control-fill);
+  border-color: var(--ds-border-accent);
+  box-shadow: var(--ds-inset-highlight);
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-easing-standard),
+    box-shadow var(--ds-duration-fast) var(--ds-easing-standard);
+}
+
+.ds-control:focus,
+input.rounded-control.border.bg-surface:focus,
+select.rounded-control.border.bg-surface:focus,
+textarea.rounded-control.border.bg-surface:focus {
+  border-color: var(--ds-ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-ring) 28%, transparent), var(--ds-inset-highlight);
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -64,6 +136,10 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  body {
+    background-attachment: scroll;
   }
 }
 

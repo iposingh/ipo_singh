@@ -1,73 +1,101 @@
-import { memo } from "react";
+import { memo, useRef } from "react";
 import type { IpoSummary } from "@ipo-singh/contracts";
-import { breakpoint } from "@ipo-singh/design-tokens";
 import {
   actualListingGainPercent,
   formatInr,
-  formatInrScale,
   formatIstDate,
   formatPriceBand,
   formatSignedPercent,
+  formatSubscriptionMultiple,
   ipoCardStage,
   isPresentNumber,
   istCalendarDate,
 } from "@ipo-singh/core";
-import { Pressable, View, useWindowDimensions } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Pressable, Share, View } from "react-native";
 import { listingCardLabel } from "../catalogue/facts";
-import { boardLabel } from "../design/copy";
+import { publicIpoPage } from "../detail/links";
+import { readAppEnvironment } from "../api/origin";
 import { mobileTheme } from "../theme/theme";
 import { useTheme } from "../theme/provider";
+import { cardSurfaceStyle } from "../theme/surfaces";
 import { AppText } from "./app-text";
 import { StatusBadge } from "./status-badge";
 
-function dateLine(label: string, value: string | null): string {
-  const text = formatIstDate(value);
-  return text === "Unavailable" ? `${label} unavailable` : `${label} ${text}`;
+function dash(value: string | null | undefined): string {
+  if (!value || value === "Unavailable") return "—";
+  return value;
 }
 
-function Fact({ label, value, wide }: { label: string; value: string; wide: boolean }) {
+function dateRange(open: string | null, close: string | null): string {
+  const openText = formatIstDate(open);
+  const closeText = formatIstDate(close);
+  if (openText === "Unavailable" && closeText === "Unavailable") return "Dates —";
+  if (openText === "Unavailable") return `Closes ${closeText}`;
+  if (closeText === "Unavailable") return `Opens ${openText}`;
+  return `${openText} – ${closeText}`;
+}
+
+function closingToday(ipo: IpoSummary, mode: "active" | "listed"): boolean {
+  if (mode === "listed") return false;
+  const today = istCalendarDate(new Date()) ?? "";
   return (
-    <View style={{ width: wide ? "47%" : "100%", gap: mobileTheme.spacing[1] }}>
-      <AppText size="sm" tone="muted">
-        {label}
-      </AppText>
-      <AppText size="sm">{value}</AppText>
-    </View>
+    ipoCardStage({
+      status: ipo.status,
+      closeDate: ipo.closeDate,
+      today,
+      allotmentConfirmed: ipo.allotmentConfirmed,
+    }) === "last-day"
   );
 }
 
-/** Extra card cue beyond StatusBadge. Allotment Awaited/Out live on the badge. */
-function lastDayLabel(ipo: IpoSummary, mode: "active" | "listed"): string | null {
-  if (mode === "listed") return null;
-  const today = istCalendarDate(new Date()) ?? "";
-  const stage = ipoCardStage({
-    status: ipo.status,
-    closeDate: ipo.closeDate,
-    today,
-    allotmentConfirmed: ipo.allotmentConfirmed,
-  });
-  return stage === "last-day" ? "Last Day" : null;
+function offerPrice(ipo: IpoSummary): string {
+  const band = formatPriceBand(ipo.priceBandLowRupees ?? null, ipo.priceBandHighRupees ?? null);
+  if (band !== "Unavailable") return band;
+  return isPresentNumber(ipo.issuePriceRupees) ? formatInr(ipo.issuePriceRupees) : "—";
+}
+
+function lotSize(ipo: IpoSummary): string {
+  return isPresentNumber(ipo.lotSizeShares) ? `${new Intl.NumberFormat("en-IN").format(ipo.lotSizeShares)} shares` : "—";
+}
+
+function subscription(ipo: IpoSummary): string {
+  return isPresentNumber(ipo.subscriptionTotalTimes) ? formatSubscriptionMultiple(ipo.subscriptionTotalTimes) : "—";
+}
+
+function listedFacts(ipo: IpoSummary): { price: string; gain: string; issue: string } {
+  const issue = isPresentNumber(ipo.listingIssuePriceRupees)
+    ? ipo.listingIssuePriceRupees
+    : isPresentNumber(ipo.issuePriceRupees)
+      ? ipo.issuePriceRupees
+      : null;
+  const listing = isPresentNumber(ipo.listingPriceRupees) ? ipo.listingPriceRupees : null;
+  const percent = actualListingGainPercent({ listingPriceRupees: listing, issuePriceRupees: issue });
+  const storedGain = isPresentNumber(ipo.listingGainPercent) ? formatSignedPercent(ipo.listingGainPercent) : null;
+  return {
+    price: listing === null ? "—" : formatInr(listing),
+    gain: percent.status === "value" ? formatSignedPercent(percent.value) : (storedGain ?? "—"),
+    issue: issue === null ? "—" : formatInr(issue),
+  };
 }
 
 /**
- * Home / list IPO card. Uses summary catalogue fields only.
- * GMP and subscription stay on the IPO detail screen.
+ * Compact IPO list card: identity + dates/status/share on top, offer or listing facts below.
+ * GMP stays on the IPO detail screen.
  */
 export const IPOCard = memo(function IPOCard({
   ipo,
   mode = "active",
-  hideBoard = false,
   onPress,
 }: {
   ipo: IpoSummary;
   mode?: "active" | "listed";
-  hideBoard?: boolean;
   onPress?: () => void;
 }) {
-  const { palette } = useTheme();
-  const { width } = useWindowDimensions();
-  const wide = width >= breakpoint.md;
-  const lastDay = lastDayLabel(ipo, mode);
+  const { palette, colorScheme } = useTheme();
+  const navigating = useRef(false);
+  const lastDay = closingToday(ipo, mode);
+  const listed = mode === "listed" ? listedFacts(ipo) : null;
   const label = listingCardLabel({
     companyName: ipo.companyName,
     board: ipo.board,
@@ -78,96 +106,195 @@ export const IPOCard = memo(function IPOCard({
     detailState: "hidden",
     allotmentConfirmed: ipo.allotmentConfirmed,
   });
-  const style = {
-    backgroundColor: palette.surface,
-    borderColor: palette.border,
-    borderWidth: 1,
+
+  async function share() {
+    const page = publicIpoPage(
+      process.env.EXPO_PUBLIC_IPO_SINGH_SITE_URL,
+      ipo.slug,
+      readAppEnvironment(process.env.EXPO_PUBLIC_APP_ENV, __DEV__),
+    );
+    const url = page.url ?? `https://iposingh.com/ipos/${ipo.slug}`;
+    try {
+      await Share.share({ message: `${ipo.companyName} IPO on IPO Singh\n${url}`, url });
+    } catch {
+      // User cancellation is not an error.
+    }
+  }
+
+  function open() {
+    if (!onPress || navigating.current) return;
+    navigating.current = true;
+    onPress();
+    setTimeout(() => {
+      navigating.current = false;
+    }, 900);
+  }
+
+  const cardStyle = {
+    ...cardSurfaceStyle(palette, colorScheme),
     borderRadius: mobileTheme.radius.lg,
-    padding: mobileTheme.spacing[4],
-    gap: mobileTheme.spacing[2],
+    overflow: "hidden" as const,
   };
 
-  const body = (
-    <View style={{ gap: mobileTheme.spacing[2] }}>
-      <AppText weight="semibold" size="lg">
-        {ipo.companyName}
+  const statusNode = lastDay ? (
+    <View
+      accessible
+      accessibilityLabel="Closing Today"
+      style={{
+        borderWidth: 1,
+        borderColor: palette.border,
+        backgroundColor: palette.background,
+        borderRadius: mobileTheme.radius.full,
+        paddingHorizontal: mobileTheme.spacing[2],
+        paddingVertical: mobileTheme.spacing[1],
+      }}
+    >
+      <AppText size="xs" weight="medium" style={{ color: palette.warningText }}>
+        Closing Today
       </AppText>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: mobileTheme.spacing[2] }}>
-        {hideBoard ? null : (
-          <AppText size="sm" tone="muted">
-            {boardLabel(ipo.board)}
-          </AppText>
-        )}
-        <StatusBadge status={ipo.status} allotmentConfirmed={ipo.allotmentConfirmed} />
-        {lastDay ? (
-          <AppText size="sm" weight="medium" style={{ color: palette.warningText }}>
-            {lastDay}
-          </AppText>
-        ) : null}
+    </View>
+  ) : (
+    <StatusBadge status={ipo.status} allotmentConfirmed={ipo.allotmentConfirmed} />
+  );
+
+  const facts = listed ? (
+    <>
+      <Fact label="Listing price" value={listed.price} />
+      <Fact label="Listing gain" value={listed.gain} />
+      <Fact label="Issue price" value={listed.issue} />
+    </>
+  ) : (
+    <>
+      <Fact label="Offer price" value={dash(offerPrice(ipo))} />
+      <Fact label="Lot size" value={lotSize(ipo)} />
+      <Fact label="Subscription" value={subscription(ipo)} />
+    </>
+  );
+
+  const shareButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Share ${ipo.companyName}`}
+      hitSlop={8}
+      onPress={() => {
+        void share();
+      }}
+      android_ripple={{ color: palette.border, borderless: true }}
+      style={{
+        minWidth: mobileTheme.sizing.touchTarget,
+        minHeight: mobileTheme.sizing.touchTarget,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Ionicons name="share-outline" size={20} color={palette.foreground} />
+    </Pressable>
+  );
+
+  const main = (
+    <View>
+      <View
+        style={{
+          gap: mobileTheme.spacing[2],
+          padding: mobileTheme.spacing[4],
+          paddingRight: mobileTheme.spacing[2],
+          borderBottomWidth: 1,
+          borderBottomColor: palette.border,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: mobileTheme.spacing[2] }}>
+          <View style={{ flex: 1, gap: mobileTheme.spacing[1], minWidth: 0 }}>
+            <AppText weight="semibold" size="lg" numberOfLines={2}>
+              {ipo.companyName}
+            </AppText>
+            <AppText size="sm" tone="muted" numberOfLines={1}>
+              {dateRange(ipo.openDate, ipo.closeDate)}
+            </AppText>
+          </View>
+          <View style={{ alignItems: "flex-end", gap: mobileTheme.spacing[2] }}>
+            {statusNode}
+            {shareButton}
+          </View>
+        </View>
       </View>
-      <AppText size="sm" tone="muted">
-        {dateLine("Opens", ipo.openDate)}
-      </AppText>
-      <AppText size="sm" tone="muted">
-        {dateLine("Closes", ipo.closeDate)}
-      </AppText>
-      {ipo.allotmentDate ? (
-        <AppText size="sm" tone="muted">
-          {dateLine("Allotment", ipo.allotmentDate)}
-        </AppText>
-      ) : null}
-      {ipo.listingDate || mode === "listed" ? (
-        <AppText size="sm" tone="muted">
-          {dateLine("Lists", ipo.listingDate ?? null)}
-        </AppText>
-      ) : null}
-      <SummaryFacts ipo={ipo} wide={wide} mode={mode} />
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: mobileTheme.spacing[3],
+          paddingHorizontal: mobileTheme.spacing[4],
+          paddingVertical: mobileTheme.spacing[3],
+        }}
+      >
+        {facts}
+      </View>
     </View>
   );
 
-  if (!onPress) return <View style={style}>{body}</View>;
+  if (!onPress) return <View style={cardStyle}>{main}</View>;
+
+  // Share sits outside the card Pressable so it never triggers navigation.
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      android_ripple={{ color: palette.border }}
-      style={({ pressed }) => ({ ...style, opacity: pressed ? 0.85 : 1 })}
-    >
-      <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-        {body}
+    <View style={cardStyle}>
+      <View
+        style={{
+          gap: mobileTheme.spacing[2],
+          padding: mobileTheme.spacing[4],
+          paddingRight: mobileTheme.spacing[2],
+          borderBottomWidth: 1,
+          borderBottomColor: palette.border,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: mobileTheme.spacing[2] }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={open}
+            android_ripple={{ color: palette.border }}
+            style={({ pressed }) => ({ flex: 1, gap: mobileTheme.spacing[1], minWidth: 0, opacity: pressed ? 0.9 : 1 })}
+          >
+            <AppText weight="semibold" size="lg" numberOfLines={2}>
+              {ipo.companyName}
+            </AppText>
+            <AppText size="sm" tone="muted" numberOfLines={1}>
+              {dateRange(ipo.openDate, ipo.closeDate)}
+            </AppText>
+          </Pressable>
+          <View style={{ alignItems: "flex-end", gap: mobileTheme.spacing[2] }}>
+            {statusNode}
+            {shareButton}
+          </View>
+        </View>
       </View>
-    </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={open}
+        android_ripple={{ color: palette.border }}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: mobileTheme.spacing[3],
+          paddingHorizontal: mobileTheme.spacing[4],
+          paddingVertical: mobileTheme.spacing[3],
+          opacity: pressed ? 0.9 : 1,
+        })}
+      >
+        {facts}
+      </Pressable>
+    </View>
   );
 });
 
-function SummaryFacts({ ipo, wide, mode }: { ipo: IpoSummary; wide: boolean; mode: "active" | "listed" }) {
-  if (mode === "listed") {
-    const issue = isPresentNumber(ipo.listingIssuePriceRupees)
-      ? ipo.listingIssuePriceRupees
-      : isPresentNumber(ipo.issuePriceRupees)
-        ? ipo.issuePriceRupees
-        : null;
-    const listing = isPresentNumber(ipo.listingPriceRupees) ? ipo.listingPriceRupees : null;
-    const percent = actualListingGainPercent({ listingPriceRupees: listing, issuePriceRupees: issue });
-    return (
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: mobileTheme.spacing[3] }}>
-        <Fact label="Issue price" value={issue === null ? "Unavailable" : formatInr(issue)} wide={wide} />
-        <Fact label="Listing price" value={listing === null ? "Listing price unavailable" : formatInr(listing)} wide={wide} />
-        <Fact label="Listing gain/loss" value={percent.status === "value" ? formatSignedPercent(percent.value) : "Unavailable"} wide={wide} />
-        <Fact label="Issue size" value={formatInrScale(ipo.issueSizeRupees ?? null)} wide={wide} />
-      </View>
-    );
-  }
-  const band = formatPriceBand(ipo.priceBandLowRupees ?? null, ipo.priceBandHighRupees ?? null);
+function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: mobileTheme.spacing[3] }}>
-      <Fact
-        label="Price band"
-        value={band === "Unavailable" && isPresentNumber(ipo.issuePriceRupees) ? formatInr(ipo.issuePriceRupees) : band}
-        wide={wide}
-      />
-      <Fact label="Issue size" value={formatInrScale(ipo.issueSizeRupees ?? null)} wide={wide} />
+    <View style={{ minWidth: "28%", flexGrow: 1, gap: 2 }}>
+      <AppText size="sm" tone="muted">
+        {label}
+      </AppText>
+      <AppText size="sm" weight="medium" numberOfLines={2}>
+        {value}
+      </AppText>
     </View>
   );
 }

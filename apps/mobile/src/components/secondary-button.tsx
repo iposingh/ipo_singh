@@ -12,7 +12,7 @@ export function SecondaryButton({
   onPress: () => void;
   disabled?: boolean;
 }) {
-  const { palette } = useTheme();
+  const { palette, colorScheme } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -31,8 +31,8 @@ export function SecondaryButton({
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: disabled ? palette.disabled : palette.border,
-        backgroundColor: pressed && !disabled ? palette.background : palette.surface,
+        borderColor: disabled ? palette.disabled : colorScheme === "dark" ? palette.borderSubtle : palette.border,
+        backgroundColor: pressed && !disabled ? palette.surfaceMuted : palette.surface,
         opacity: disabled ? 0.7 : 1,
       })}
     >

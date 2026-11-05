@@ -246,16 +246,20 @@ const columns: TableColumn<SampleRow>[] = [
 const swatches = [
   ["Primary green", brandColors.primaryGreen],
   ["Bright green", brandColors.brightGreen],
+  ["Accent lime", brandColors.accentLime],
   ["Deep green", brandColors.deepGreen],
+  ["Soft green", brandColors.softGreen],
   ["Main text", brandColors.mainText],
   ["Background", brandColors.background],
   ["Card", brandColors.cardSurface],
   ["Muted text", brandColors.mutedText],
   ["Negative", brandColors.negativeData],
   ["Warning", brandColors.warning],
+  ["Information", brandColors.information],
   ["Dark background", brandColors.darkBackground],
   ["Dark card", brandColors.darkCardSurface],
   ["Dark text", brandColors.darkMainText],
+  ["Dark border", brandColors.darkBorder],
 ] as const;
 
 export function DesignSystemView() {
@@ -319,7 +323,7 @@ export function DesignSystemView() {
         <SectionHeader
           eyebrow="Color"
           title="Approved palette"
-          description="Light and dark semantic tokens switch with the theme control. Small text uses contrast-safe greens because white on #16A34A is below WCAG AA."
+          description="Light and dark semantic tokens switch with the theme control. Light filled controls use strong emerald; dark CTAs use lime with near-black labels for contrast."
         />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {swatches.map(([name, hex]) => (

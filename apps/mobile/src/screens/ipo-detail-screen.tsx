@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { stableIdSchema, type Ipo } from "@ipo-singh/contracts";
-import { View } from "react-native";
+import { router } from "expo-router";
+import { BackHandler, View } from "react-native";
 import { MobileApiError } from "../api/errors";
 import { catalogueClient, historyClient } from "../catalogue/client";
 import { fallbackHistoryNote, offlineHistoryNote, type ChartPhase, type GmpHistoryDocument, type HistoryLoad, type SubscriptionHistoryDocument } from "../catalogue/history";
 import { fallbackCacheNote, offlineCacheNote } from "../catalogue/response-cache";
 import { AppHeader } from "../components/app-header";
+import { DetailSafeBoundary } from "../components/detail-safe-boundary";
 import { EmptyState } from "../components/empty-state";
 import { ErrorState } from "../components/error-state";
 import { IpoDetailView } from "../components/ipo-detail-view";
@@ -40,11 +42,20 @@ function nextChartPhase<T>(loaded: HistoryLoad<T>, current: ChartPhase<T>, keepR
   return { phase: "unavailable", message: loaded.message };
 }
 
+function leaveDetail() {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  router.replace("/(tabs)");
+}
+
 export function IpoDetailScreen({ slug }: { slug: string }) {
   const { palette } = useTheme();
   const valid = stableIdSchema.safeParse(slug).success;
   const [attempt, setAttempt] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [renderKey, setRenderKey] = useState(0);
   const [state, setState] = useState<DetailState>({ phase: "loading" });
   const [gmpHistory, setGmpHistory] = useState<ChartPhase<GmpHistoryDocument>>({ phase: "loading" });
   const [subscriptionHistory, setSubscriptionHistory] = useState<ChartPhase<SubscriptionHistoryDocument>>({ phase: "loading" });
@@ -57,6 +68,14 @@ export function IpoDetailScreen({ slug }: { slug: string }) {
   });
 
   useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      leaveDetail();
+      return true;
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     if (!valid) return;
     const force = forceRef.current;
     const soft = softRef.current;
@@ -64,6 +83,7 @@ export function IpoDetailScreen({ slug }: { slug: string }) {
     softRef.current = false;
     const keepReady = force || soft;
     if (!force && !soft) {
+      setState({ phase: "loading" });
       setGmpHistory({ phase: "loading" });
       setSubscriptionHistory({ phase: "loading" });
     }
@@ -144,7 +164,6 @@ export function IpoDetailScreen({ slug }: { slug: string }) {
   }
 
   const softReload = useCallback(() => {
-    // Soft recovery: reuse fresh device cache, hit the network only when stale.
     forceRef.current = false;
     softRef.current = true;
     setAttempt((value) => value + 1);
@@ -156,8 +175,16 @@ export function IpoDetailScreen({ slug }: { slug: string }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.background }}>
-      <AppHeader title={title} showSearch={false} />
-      {valid && state.phase === "ready" ? (
+      <AppHeader title={title} showSearch={false} forceBack onBack={leaveDetail} />
+      <DetailSafeBoundary
+        key={`${slug}-${renderKey}`}
+        onRetry={() => {
+          setRenderKey((value) => value + 1);
+          reload();
+        }}
+        onBack={leaveDetail}
+      >
+        {valid && state.phase === "ready" ? (
           <IpoDetailView
             ipo={state.ipo}
             notice={state.notice}
@@ -168,16 +195,36 @@ export function IpoDetailScreen({ slug }: { slug: string }) {
           />
         ) : (
           <ScreenContainer safeBottom refreshing={refreshing} onRefresh={valid ? reload : undefined}>
-            {!valid ? <ErrorState title="This IPO address is not valid." message="The link does not match a stored IPO." /> : null}
+            {!valid ? (
+              <ErrorState
+                title="This IPO address is not valid."
+                message="The link does not match a stored IPO."
+                action={<PrimaryButton label="Back to IPOs" onPress={leaveDetail} />}
+              />
+            ) : null}
             {valid && state.phase === "loading" ? <LoadingSkeleton label="Loading the IPO" /> : null}
             {valid && state.phase === "missing" ? (
-              <EmptyState title="This IPO is not stored." description="The app does not add a sample company." />
+              <EmptyState
+                title="This IPO is not stored."
+                description="The app does not add a sample company."
+                action={<PrimaryButton label="Back to IPOs" onPress={leaveDetail} />}
+              />
             ) : null}
             {valid && state.phase === "error" ? (
-              <ErrorState title="The IPO could not be loaded" message={state.message} action={<PrimaryButton label="Try again" onPress={reload} />} />
+              <ErrorState
+                title="The IPO could not be loaded"
+                message={state.message}
+                action={
+                  <View style={{ gap: 12 }}>
+                    <PrimaryButton label="Try again" onPress={reload} />
+                    <PrimaryButton label="Back to IPOs" onPress={leaveDetail} />
+                  </View>
+                }
+              />
             ) : null}
           </ScreenContainer>
         )}
+      </DetailSafeBoundary>
     </View>
   );
 }

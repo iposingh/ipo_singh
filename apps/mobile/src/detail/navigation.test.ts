@@ -92,12 +92,36 @@ test("invalid deep links and push payloads do not invent IPO routes", () => {
 
 test("homepage IPO cards omit GMP while detail models still surface stored premiums", () => {
   const card = readFileSync(join(root, "src/components/ipo-card.tsx"), "utf8");
-  assert.match(card, /GMP and subscription stay on the IPO detail screen/);
+  assert.match(card, /GMP stays on the IPO detail screen/);
   assert.equal(card.includes("gmpAmountRupees"), false);
   assert.equal(card.includes("Current GMP"), false);
+  assert.match(card, /Share\.share/);
+  assert.match(card, /share-outline/);
   const detail = readFileSync(join(root, "src/components/ipo-detail-view.tsx"), "utf8");
   assert.match(detail, /Current GMP/);
   assert.match(detail, /GmpHistoryPanels/);
+});
+
+test("IPO detail recovers from blank traps with back, retry, and a render boundary", () => {
+  const screen = readFileSync(join(root, "src/screens/ipo-detail-screen.tsx"), "utf8");
+  assert.match(screen, /DetailSafeBoundary/);
+  assert.match(screen, /forceBack/);
+  assert.match(screen, /BackHandler/);
+  assert.match(screen, /Back to IPOs/);
+  assert.match(screen, /Try again/);
+  assert.match(screen, /leaveDetail/);
+  const boundary = readFileSync(join(root, "src/components/detail-safe-boundary.tsx"), "utf8");
+  assert.match(boundary, /getDerivedStateFromError/);
+  assert.match(boundary, /This IPO page could not be shown/);
+  const listing = readFileSync(join(root, "src/components/listing-list.tsx"), "utf8");
+  assert.match(listing, /BrowseModeSwitcher/);
+  assert.match(listing, /PromotionCarousel/);
+  assert.match(listing, /Advertisement carousel must sit immediately below the segment/);
+  const header = listing.slice(listing.indexOf("ListHeaderComponent"), listing.indexOf("renderSectionHeader"));
+  assert.ok(header.includes("BrowseModeSwitcher"));
+  assert.ok(header.includes("PromotionCarousel"));
+  assert.ok(header.indexOf("BrowseModeSwitcher") < header.indexOf("PromotionCarousel"));
+  assert.equal(header.includes("IPOCard"), false);
 });
 
 test("developer diagnostics stay hidden until revealed and are off in production", () => {

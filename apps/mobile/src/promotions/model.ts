@@ -73,7 +73,10 @@ export function autoplayAllowed(input: {
   interacting: boolean;
   focused: boolean;
   appActive: boolean;
+  /** When false, the hosting screen is not focused — pause autoplay. */
+  screenFocused?: boolean;
 }): boolean {
+  if (input.screenFocused === false) return false;
   return input.count > 1 && !input.paused && !input.reducedMotion && !input.interacting && !input.focused && input.appActive;
 }
 
@@ -81,21 +84,21 @@ export function houseBanners(): MobileBanner[] {
   return [
     houseBanner(
       "mainboard",
-      "Mainboard IPOs",
-      "Browse stored Mainboard issues. The list stays empty when none are stored.",
+      "All IPO Insights. One Place.",
+      "Browse Mainboard and SME issues with stored figures from IPO Singh.",
       { kind: "route", href: "/" },
       "Green banner with three rising bars and an upward arrow",
     ),
     houseBanner(
       "sme",
-      "SME IPOs",
-      "SME issues stay on their own list, separate from Mainboard.",
+      "Track IPO GMP & Subscription Updates.",
+      "Open an issue for unofficial GMP history and subscription totals when stored.",
       { kind: "route", href: "/(tabs)/sme" },
       "Deep green banner with three rising bars and an upward arrow",
     ),
     houseBanner(
       "calendar",
-      "IPO Calendar",
+      "Stay Updated with IPO Singh.",
       "Opening, closing, allotment and listing dates in India Standard Time.",
       { kind: "route", href: "/(tabs)/calendar" },
       "Green banner with a calendar graphic",

@@ -7,8 +7,9 @@ type ButtonSize = "sm" | "md" | "lg";
 const variantClass: Record<ButtonVariant, string> = {
   primary:
     "bg-primary-solid text-primary-foreground hover:bg-primary-solid-hover active:bg-primary-solid-active",
-  secondary: "border border-border bg-surface text-foreground hover:bg-background",
-  ghost: "bg-transparent text-foreground hover:bg-surface",
+  secondary:
+    "border border-border bg-surface text-foreground shadow-card hover:border-[color:var(--ds-border-accent-hover)] hover:bg-[image:var(--ds-surface-fill-hover)]",
+  ghost: "bg-transparent text-foreground hover:bg-accent-subtle/60",
   danger: "bg-negative-solid text-negative-foreground hover:bg-negative-solid-hover",
 };
 
@@ -39,7 +40,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors duration-[var(--ds-duration-fast)] ease-[var(--ds-easing-standard)] disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground",
+        "inline-flex items-center justify-center gap-2 rounded-control font-medium transition-[filter,box-shadow,background-color,border-color] duration-[var(--ds-duration-fast)] ease-[var(--ds-easing-standard)] disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:shadow-none disabled:[background-image:none]",
         variantClass[variant],
         sizeClass[size],
         className,

@@ -6,7 +6,7 @@ import { indexablePaths } from "@/lib/seo/site";
 export function SiteFooter() {
   const discover = indexablePaths.filter((item) => footerNav.every((link) => link.href !== item.path));
   return (
-    <footer className="mt-auto border-t border-border bg-surface pb-[calc(5.5rem+var(--app-promo-bar)+env(safe-area-inset-bottom))] lg:pb-10">
+    <footer className="mt-auto border-t border-border bg-[color:var(--ds-header-fill)] pb-[calc(5.5rem+var(--app-promo-bar)+env(safe-area-inset-bottom))] shadow-[var(--ds-shadow-header)] lg:pb-10">
       <div className="mx-auto grid w-full max-w-[70rem] gap-6 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-2">
           <p className="text-sm font-semibold text-foreground">IPO Singh</p>

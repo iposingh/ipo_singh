@@ -8,11 +8,36 @@ import { AppText } from "./app-text";
 import { NotificationBell } from "./notification-bell";
 import { OfflineBanner } from "./offline-notice";
 
-export function AppHeader({ title, showSearch = true, showBell = true }: { title: string; showSearch?: boolean; showBell?: boolean }) {
+export function AppHeader({
+  title,
+  showSearch = true,
+  showBell = true,
+  /** Always show a back control (IPO detail). Falls back to Mainboard when the stack cannot go back. */
+  forceBack = false,
+  onBack,
+}: {
+  title: string;
+  showSearch?: boolean;
+  showBell?: boolean;
+  forceBack?: boolean;
+  onBack?: () => void;
+}) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const showBack = navigation.canGoBack();
+  const showBack = forceBack || navigation.canGoBack();
+
+  function goBack() {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    router.replace("/(tabs)");
+  }
 
   return (
     <View
@@ -28,7 +53,7 @@ export function AppHeader({ title, showSearch = true, showBell = true }: { title
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
-            onPress={() => navigation.goBack()}
+            onPress={goBack}
             android_ripple={{ color: palette.border }}
             style={({ pressed }) => ({
               minWidth: mobileTheme.sizing.touchTarget,

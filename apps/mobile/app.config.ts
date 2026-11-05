@@ -1,7 +1,7 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 const background = "#F8FAFC";
-const brandGreen = "#166534";
+const brandGreen = "#15803D";
 const appEnv = process.env.EXPO_PUBLIC_APP_ENV ?? "development";
 const isDevelopment = appEnv === "development";
 const isProduction = appEnv === "production";
@@ -23,7 +23,7 @@ const androidVersionCode = 1;
 const iosBuildNumber = "1";
 /** Pin Play-compatible API 36; must stay aligned with identity.ts android*SdkVersion constants. */
 const androidMinSdkVersion = 24;
-const androidCompileSdkVersion = 36;
+const androidCompileSdkVersion = 37;
 const androidTargetSdkVersion = 36;
 /** Keep aligned with `iosDeploymentTarget` in identity.ts (Expo SDK 58 baseline). */
 const iosDeploymentTarget = "16.4";

@@ -5,7 +5,7 @@ import { bottomNav } from "@/lib/navigation/routes";
 
 export function BottomNav() {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-[color:var(--ds-header-fill)] pb-[env(safe-area-inset-bottom)] shadow-[var(--ds-shadow-header)] backdrop-blur-md lg:hidden">
       <SiteNav
         items={bottomNav}
         label="Sections"

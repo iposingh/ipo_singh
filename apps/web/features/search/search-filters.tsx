@@ -124,7 +124,9 @@ function FilterLink({ href, current, children }: { href: string; current: boolea
       aria-current={current ? "true" : undefined}
       className={cn(
         "inline-flex h-10 items-center rounded-control border px-3 text-sm",
-        current ? "border-primary-solid bg-primary-solid text-primary-foreground" : "border-border bg-surface text-foreground",
+        current
+          ? "border-transparent bg-primary-solid text-primary-foreground"
+          : "border-border bg-surface text-foreground hover:border-[color:var(--ds-border-accent-hover)]",
       )}
     >
       {children}

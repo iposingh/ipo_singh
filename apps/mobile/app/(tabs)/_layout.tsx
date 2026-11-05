@@ -9,15 +9,14 @@ import { mobileTheme } from "../../src/theme/theme";
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
 const icons: Record<PrimaryTab["icon"], { active: IconName; inactive: IconName }> = {
-  home: { active: "home", inactive: "home-outline" },
   list: { active: "list", inactive: "list-outline" },
-  bookmark: { active: "bookmark", inactive: "bookmark-outline" },
+  calendar: { active: "calendar", inactive: "calendar-outline" },
   notifications: { active: "notifications", inactive: "notifications-outline" },
   settings: { active: "settings", inactive: "settings-outline" },
 };
 
 export default function TabLayout() {
-  const { palette } = useTheme();
+  const { palette, colorScheme } = useTheme();
   return (
     <Tabs
       screenOptions={{
@@ -27,8 +26,8 @@ export default function TabLayout() {
         tabBarInactiveTintColor: palette.muted,
         tabBarAllowFontScaling: true,
         tabBarStyle: {
-          backgroundColor: palette.surface,
-          borderTopColor: palette.border,
+          backgroundColor: palette.surfaceElevated,
+          borderTopColor: colorScheme === "dark" ? palette.borderSubtle : palette.border,
           minHeight: mobileTheme.sizing.touchTarget + mobileTheme.spacing[2],
         },
         tabBarItemStyle: { minHeight: mobileTheme.sizing.touchTarget },
@@ -57,8 +56,8 @@ export default function TabLayout() {
         />
       ))}
       {/* Legacy routes kept for deep links / house banners; hidden from the tab bar. */}
-      <Tabs.Screen name="sme" options={{ href: null, title: "SME IPOs" }} />
-      <Tabs.Screen name="calendar" options={{ href: null, title: "Calendar" }} />
+      <Tabs.Screen name="ipos" options={{ href: null, title: "Search IPOs" }} />
+      <Tabs.Screen name="watchlist" options={{ href: null, title: "Watchlist" }} />
       <Tabs.Screen name="account" options={{ href: null, title: "Account" }} />
     </Tabs>
   );

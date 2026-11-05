@@ -1,9 +1,9 @@
 export const primaryTabs = [
-  { route: "index", title: "Home", accessibilityLabel: "IPO Singh home dashboard", icon: "home" },
-  { route: "ipos", title: "IPOs", accessibilityLabel: "IPO listings and search", icon: "list" },
-  { route: "watchlist", title: "Watchlist", accessibilityLabel: "Watchlist", icon: "bookmark" },
-  { route: "notifications", title: "Alerts", accessibilityLabel: "Notifications", icon: "notifications" },
-  { route: "settings", title: "Settings", accessibilityLabel: "Settings", icon: "settings" },
+  { route: "index", title: "Mainboard", accessibilityLabel: "Mainboard IPOs", icon: "list" as const },
+  { route: "sme", title: "SME", accessibilityLabel: "SME IPOs", icon: "list" as const },
+  { route: "calendar", title: "Calendar", accessibilityLabel: "IPO calendar", icon: "calendar" as const },
+  { route: "notifications", title: "Alerts", accessibilityLabel: "Notifications", icon: "notifications" as const },
+  { route: "settings", title: "Settings", accessibilityLabel: "Settings", icon: "settings" as const },
 ] as const;
 
 export type PrimaryTab = (typeof primaryTabs)[number];

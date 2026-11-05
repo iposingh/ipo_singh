@@ -1,12 +1,12 @@
 import { ActivityIndicator, Pressable } from "react-native";
 import { mobileTheme } from "../theme/theme";
 import { useTheme } from "../theme/provider";
+import { primaryButtonSurfaceStyle } from "../theme/surfaces";
 import { AppText } from "./app-text";
 
 export function PrimaryButton({ label, onPress, loading = false, disabled = false }: { label: string; onPress: () => void; loading?: boolean; disabled?: boolean }) {
-  const { palette } = useTheme();
+  const { palette, colorScheme } = useTheme();
   const inactive = disabled || loading;
-  const background = disabled ? palette.disabled : palette.primarySolid;
   const color = disabled ? palette.disabledForeground : palette.primaryForeground;
   return (
     <Pressable
@@ -26,7 +26,9 @@ export function PrimaryButton({ label, onPress, loading = false, disabled = fals
         justifyContent: "center",
         flexDirection: "row",
         gap: mobileTheme.spacing[2],
-        backgroundColor: pressed && !inactive ? palette.primarySolidActive : background,
+        ...(disabled
+          ? { backgroundColor: palette.disabled, elevation: 0, shadowOpacity: 0 }
+          : primaryButtonSurfaceStyle(palette, colorScheme, pressed && !inactive)),
       })}
     >
       {loading ? <ActivityIndicator color={color} /> : null}

@@ -153,8 +153,8 @@ function IpoBrowseControls({ board, query }: { board: Board; query: IpoBrowseQue
               aria-current={current ? "page" : undefined}
               className={
                 current
-                  ? "inline-flex h-10 items-center rounded-control bg-surface px-3 text-sm font-medium text-foreground"
-                  : "inline-flex h-10 items-center rounded-control px-3 text-sm font-medium text-muted hover:bg-surface hover:text-foreground"
+                  ? "inline-flex h-10 items-center rounded-control bg-accent-subtle px-3 text-sm font-medium text-foreground shadow-card ring-1 ring-[color:var(--ds-border-subtle)]"
+                  : "inline-flex h-10 items-center rounded-control px-3 text-sm font-medium text-muted hover:bg-surface-muted hover:text-foreground"
               }
             >
               {option.label}

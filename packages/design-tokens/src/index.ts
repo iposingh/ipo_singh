@@ -2,6 +2,7 @@ export { brandColors } from "./brand.ts";
 export type { BrandColor } from "./brand.ts";
 export { colors, darkColors, lightColors } from "./color.ts";
 export type { SemanticColors } from "./color.ts";
+export { finish } from "./finish.ts";
 export { breakpoint, layout } from "./layout.ts";
 export { motion } from "./motion.ts";
 export { radius } from "./radius.ts";

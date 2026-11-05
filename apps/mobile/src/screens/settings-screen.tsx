@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import { Linking, Pressable, View } from "react-native";
+import { Linking, Pressable, Share, View } from "react-native";
 import { useAuth } from "../auth/provider";
 import { AppText } from "../components/app-text";
 import { EmptyState } from "../components/empty-state";
@@ -19,7 +19,16 @@ import {
   diagnosticsSectionTitle,
   nextDiagnosticsVisible,
 } from "../settings/diagnostics";
-import { appVersionLabel, developerContactEmail, developerMailto, legalPageUrl, legalPages, type LegalPageId } from "../settings/legal";
+import {
+  appVersionLabel,
+  developerContactEmail,
+  developerMailto,
+  legalPageUrl,
+  legalPages,
+  shareWithFriendsMessage,
+  shareWithFriendsUrl,
+  type LegalPageId,
+} from "../settings/legal";
 import { mobileTheme } from "../theme/theme";
 import { useTheme } from "../theme/provider";
 import { ApiStatus } from "./api-status";
@@ -66,14 +75,79 @@ function SettingsRow({
   );
 }
 
+function WelcomeAccountCard({
+  signedIn,
+  name,
+  onOpenAuth,
+  authOpen,
+}: {
+  signedIn: boolean;
+  name: string | null;
+  onOpenAuth: () => void;
+  authOpen: boolean;
+}) {
+  const { palette } = useTheme();
+  if (signedIn) {
+    return (
+      <View
+        style={{
+          gap: mobileTheme.spacing[1],
+          padding: mobileTheme.spacing[4],
+          borderRadius: mobileTheme.radius.lg,
+          borderWidth: 1,
+          borderColor: palette.border,
+          backgroundColor: palette.surface,
+        }}
+      >
+        <AppText weight="semibold" size="lg">
+          {name ?? "Signed in"}
+        </AppText>
+        <AppText size="sm" tone="muted">
+          Account, profile, and sign-out options are below.
+        </AppText>
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Welcome, User. Click here to sign in or create an account"
+      accessibilityState={{ expanded: authOpen }}
+      onPress={onOpenAuth}
+      android_ripple={{ color: palette.border }}
+      style={({ pressed }) => ({
+        gap: mobileTheme.spacing[1],
+        padding: mobileTheme.spacing[4],
+        borderRadius: mobileTheme.radius.lg,
+        borderWidth: 1,
+        borderColor: palette.primarySolid,
+        backgroundColor: palette.surface,
+        opacity: pressed ? 0.9 : 1,
+      })}
+    >
+      <AppText weight="semibold" size="lg">
+        Welcome, User
+      </AppText>
+      <AppText size="sm" tone="muted">
+        Click here to sign in or create an account
+      </AppText>
+    </Pressable>
+  );
+}
+
 export function SettingsScreen() {
   const { palette } = useTheme();
   const { state, logout, retry } = useAuth();
   const [message, setMessage] = useState<string | null>(null);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const appEnv = readAppEnvironment(process.env.EXPO_PUBLIC_APP_ENV, __DEV__);
   const canOpenDiagnostics = diagnosticsAvailable(appEnv);
   const version = appVersionLabel(Constants.expoConfig?.version ?? "0.1.0", Constants.nativeBuildVersion);
+  const signedInName =
+    state.phase === "ready"
+      ? state.snapshot.account.displayName?.trim() || state.snapshot.account.email || "Signed in"
+      : null;
 
   async function openLegal(id: LegalPageId) {
     const page = legalPages.find((item) => item.id === id);
@@ -101,30 +175,26 @@ export function SettingsScreen() {
     }
   }
 
+  async function shareWithFriends() {
+    try {
+      await Share.share({ message: shareWithFriendsMessage, url: shareWithFriendsUrl });
+      setMessage(null);
+    } catch {
+      setMessage("Sharing was cancelled or could not be completed.");
+    }
+  }
+
   return (
     <ScreenContainer keyboardDismissMode="on-drag" safeBottom>
-      <SectionHeader title="Settings" description="Appearance, alerts, account, and legal pages. Public IPO browsing does not require sign-in." />
+      <SectionHeader title="Settings" description="Account, sharing, alerts, appearance, and legal pages." />
 
-      <SectionHeader
-        title="Appearance"
-        description={
-          state.phase === "ready"
-            ? "Light, Dark, or System. A signed-in choice is saved on the account and on this device."
-            : "Light, Dark, or System. The choice is saved on this device for guests."
-        }
+      {/* FIRST — Welcome / Account */}
+      <WelcomeAccountCard
+        signedIn={state.phase === "ready"}
+        name={signedInName}
+        authOpen={authOpen}
+        onOpenAuth={() => setAuthOpen((open) => !open)}
       />
-      <ThemeToggle />
-
-      <SectionHeader title="Notifications" description="Category preferences need an account. Global allotment phone reminders do not require a watchlisted IPO. Email is not sent." />
-      {state.phase === "ready" ? <AccountPreferencesForm /> : null}
-      {state.phase === "signed-out" || state.phase === "offline" ? <AnonymousAllotmentReminders /> : null}
-      {state.phase === "signed-out" ? (
-        <AppText size="sm" tone="muted">
-          Sign in below to manage opening, closing, allotment results, and listing reminder categories.
-        </AppText>
-      ) : null}
-
-      <SectionHeader title="Account" description="Optional. Guests can keep browsing Home and IPOs without signing in." />
       {state.phase === "loading" ? <LoadingSkeleton label="Loading the account" /> : null}
       {state.phase === "offline" ? (
         <View style={{ gap: mobileTheme.spacing[3] }}>
@@ -133,7 +203,7 @@ export function SettingsScreen() {
           <PrimaryButton label="Sign out on this device" onPress={() => void logout(false)} />
         </View>
       ) : null}
-      {state.phase === "signed-out" ? (
+      {state.phase === "signed-out" && (authOpen || state.notice) ? (
         <View style={{ gap: mobileTheme.spacing[3] }}>
           {state.notice ? (
             <AppText size="sm" tone="warning">
@@ -145,6 +215,63 @@ export function SettingsScreen() {
       ) : null}
       {state.phase === "ready" ? <AccountSignedIn /> : null}
 
+      {/* SECOND — Share with friends */}
+      <SettingsRow
+        label="Share with friends"
+        description="Invite friends to explore IPO Singh at iposingh.com"
+        accessibilityHint="Opens the system share sheet"
+        onPress={() => {
+          void shareWithFriends();
+        }}
+      />
+
+      {/* Remaining options */}
+      <SectionHeader
+        title="Notification preferences"
+        description="Category preferences need an account. Global allotment phone reminders do not require a watchlisted IPO. Email is not sent."
+      />
+      {state.phase === "ready" ? <AccountPreferencesForm /> : null}
+      {state.phase === "signed-out" || state.phase === "offline" ? <AnonymousAllotmentReminders /> : null}
+      {state.phase === "signed-out" ? (
+        <AppText size="sm" tone="muted">
+          Sign in above to manage opening, closing, allotment results, and listing reminder categories.
+        </AppText>
+      ) : null}
+
+      <SectionHeader
+        title="Appearance"
+        description={
+          state.phase === "ready"
+            ? "Light, Dark, or System. A signed-in choice is saved on the account and on this device."
+            : "Light, Dark, or System. The choice is saved on this device for guests."
+        }
+      />
+      <ThemeToggle />
+
+      <SectionHeader title="Legal & about" description="Privacy and Terms open the IPO Singh website when the public site address is configured." />
+      <View style={{ gap: mobileTheme.spacing[1] }}>
+        {(["contact", "privacy", "terms", "about"] as const).map((id) => {
+          const page = legalPages.find((item) => item.id === id);
+          if (!page) return null;
+          return (
+            <SettingsRow
+              key={page.id}
+              label={page.label}
+              description={page.summary}
+              accessibilityHint={page.id === "contact" ? "Opens email" : "Opens the website page when available"}
+              onPress={() => {
+                void openLegal(page.id);
+              }}
+            />
+          );
+        })}
+      </View>
+      {message ? (
+        <AppText size="sm" tone="warning" accessibilityLiveRegion="polite">
+          {message}
+        </AppText>
+      ) : null}
+
       <SectionHeader title="Learn" description="Published IPO guides and updates from IPO Singh. Empty when nothing is published." />
       <SettingsRow
         label="News & Guides"
@@ -152,26 +279,6 @@ export function SettingsScreen() {
         accessibilityHint="Opens published articles"
         onPress={() => router.push("/news")}
       />
-
-      <SectionHeader title="Legal & about" description="Privacy and Terms open the IPO Singh website when the public site address is configured." />
-      <View style={{ gap: mobileTheme.spacing[1] }}>
-        {legalPages.map((page) => (
-          <SettingsRow
-            key={page.id}
-            label={page.label}
-            description={page.summary}
-            accessibilityHint={page.id === "contact" ? "Opens email" : "Opens the website page when available"}
-            onPress={() => {
-              void openLegal(page.id);
-            }}
-          />
-        ))}
-      </View>
-      {message ? (
-        <AppText size="sm" tone="warning" accessibilityLiveRegion="polite">
-          {message}
-        </AppText>
-      ) : null}
 
       <View style={{ gap: mobileTheme.spacing[1], paddingTop: mobileTheme.spacing[2] }}>
         <AppText size="sm" tone="muted">
@@ -181,9 +288,7 @@ export function SettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel="App version"
           accessibilityHint={canOpenDiagnostics ? diagnosticsRevealHint : undefined}
-          onLongPress={
-            canOpenDiagnostics ? () => setDiagnosticsOpen((open) => nextDiagnosticsVisible(open)) : undefined
-          }
+          onLongPress={canOpenDiagnostics ? () => setDiagnosticsOpen((open) => nextDiagnosticsVisible(open)) : undefined}
           delayLongPress={600}
           style={{ minHeight: mobileTheme.sizing.touchTarget, justifyContent: "center" }}
         >
