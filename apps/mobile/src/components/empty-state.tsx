@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { mobileTheme } from "../theme/theme";
 import { AppText } from "./app-text";
 
-export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return (
     <View
       accessibilityRole="summary"

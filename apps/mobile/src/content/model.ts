@@ -13,10 +13,12 @@ export type ContentCategoryFilter = "all" | ArticleCategory;
 
 export const contentCategoryChoices: readonly { value: ContentCategoryFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "ipo-news", label: articleCategoryLabel["ipo-news"] },
-  { value: "guides", label: articleCategoryLabel.guides },
-  { value: "market-education", label: articleCategoryLabel["market-education"] },
   { value: "ipo-updates", label: articleCategoryLabel["ipo-updates"] },
+  { value: "market-news", label: articleCategoryLabel["market-news"] },
+  { value: "gmp-updates", label: articleCategoryLabel["gmp-updates"] },
+  { value: "allotment-updates", label: articleCategoryLabel["allotment-updates"] },
+  { value: "listing-updates", label: articleCategoryLabel["listing-updates"] },
+  { value: "general", label: articleCategoryLabel.general },
 ];
 
 export function articleCategoryText(category: ArticleCategory): string {
@@ -41,11 +43,15 @@ export function articleBodyParagraphs(bodyMarkdown: string): string[] {
     .filter(Boolean);
 }
 
-export function articlesPath(input: { category?: ContentCategoryFilter; q?: string } = {}): string {
+export function articlesPath(
+  input: { category?: ContentCategoryFilter; q?: string; limit?: number; cursor?: string } = {},
+): string {
   const params = new URLSearchParams();
   if (input.category && input.category !== "all") params.set("category", input.category);
   const query = input.q?.trim();
   if (query) params.set("q", query.slice(0, 80));
+  if (typeof input.limit === "number" && Number.isFinite(input.limit)) params.set("limit", String(Math.trunc(input.limit)));
+  if (input.cursor?.trim()) params.set("cursor", input.cursor.trim().slice(0, 200));
   const suffix = params.toString();
   return suffix ? `/api/v1/articles?${suffix}` : "/api/v1/articles";
 }
@@ -53,6 +59,18 @@ export function articlesPath(input: { category?: ContentCategoryFilter; q?: stri
 export function articleDetailPath(slug: string): string | null {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
   return `/api/v1/articles/${slug}`;
+}
+
+/** Resolve relative article cover paths against the API origin for Image. */
+export function absoluteArticleMediaUrl(origin: string, url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (!url.startsWith("/")) return null;
+  try {
+    return new URL(url, origin.endsWith("/") ? origin : `${origin}/`).href;
+  } catch {
+    return null;
+  }
 }
 
 export function relatedIpoRoutes(article: PublicArticleDetail): string[] {

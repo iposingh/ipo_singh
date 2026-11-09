@@ -8,7 +8,17 @@ const adminAuditSchema = new Schema(
     action: {
       type: String,
       required: true,
-      enum: ["access_denied", "role_change", "session_revoke", "provider_read", "bootstrap", "manual_sync", "banner_change"],
+      enum: [
+        "access_denied",
+        "role_change",
+        "session_revoke",
+        "provider_read",
+        "bootstrap",
+        "manual_sync",
+        "banner_change",
+        "allotment_confirm",
+        "allotment_retry",
+      ],
     },
     outcome: { type: String, required: true, enum: ["succeeded", "denied"] },
     targetUserId: { type: String, default: null },

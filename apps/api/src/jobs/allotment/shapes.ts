@@ -35,12 +35,20 @@ export function adminConfirmAllotment(input: {
   ipoId: string;
   now: Date;
   auditor: string;
-  evidenceNote: string;
+  /** Optional free-text note. When omitted, an automatic audit line is recorded. */
+  evidenceNote?: string | null;
+  sourceUrl?: string | null;
 }): AllotmentVerificationShape | { error: string } {
-  const note = input.evidenceNote.trim();
   const auditor = input.auditor.trim();
   if (!auditor || auditor.length > 120) return { error: "Auditor identity is required." };
-  if (note.length < 12 || note.length > 500) return { error: "An evidence note between 12 and 500 characters is required." };
+  const supplied = (input.evidenceNote ?? "").trim();
+  if (supplied.length > 0 && (supplied.length < 12 || supplied.length > 500)) {
+    return { error: "An evidence note between 12 and 500 characters is required." };
+  }
+  const url = (input.sourceUrl ?? "").trim();
+  const note =
+    supplied ||
+    `manual_admin confirmation for ${input.ipoId} by ${auditor} at ${input.now.toISOString()}${url ? ` via ${url}` : ""}`.slice(0, 500);
   return {
     ipoId: input.ipoId,
     verificationStatus: "confirmed",

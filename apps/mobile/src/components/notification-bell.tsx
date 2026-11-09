@@ -15,7 +15,7 @@ export function NotificationBell() {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={() => router.push("/(tabs)/notifications")}
+      onPress={() => router.push("/notifications")}
       android_ripple={{ color: palette.border }}
       style={({ pressed }) => ({
         minWidth: mobileTheme.sizing.touchTarget,

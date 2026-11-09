@@ -8,6 +8,7 @@ import { deviceJsonCache } from "../catalogue/device-store";
 import { loadArticleList } from "../content/load";
 import { useOnReconnect } from "../network/provider";
 import {
+  absoluteArticleMediaUrl,
   articleCardAccessibilityLabel,
   articleCategoryText,
   articlePublishedLabel,
@@ -29,7 +30,7 @@ import { readCatalogueTarget } from "./catalogue-target";
 
 type ListState =
   | { phase: "loading" }
-  | { phase: "ready"; items: PublicArticleSummary[]; disclaimer: string; notice: string | null }
+  | { phase: "ready"; items: PublicArticleSummary[]; disclaimer: string; notice: string | null; nextCursor: string | null }
   | { phase: "error"; message: string };
 
 export function NewsListScreen() {
@@ -38,7 +39,10 @@ export function NewsListScreen() {
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [state, setState] = useState<ListState>({ phase: "loading" });
+  const [mediaOrigin, setMediaOrigin] = useState("");
   const forceRef = useRef(false);
   const softRef = useRef(false);
 
@@ -57,6 +61,7 @@ export function NewsListScreen() {
         setState({ phase: "error", message: target.error });
         return;
       }
+      setMediaOrigin(target.origin);
       try {
         const result = await loadArticleList({
           origin: target.origin,
@@ -70,7 +75,13 @@ export function NewsListScreen() {
         });
         if (controller.signal.aborted) return;
         if (result.status === "ready") {
-          setState({ phase: "ready", items: result.items, disclaimer: result.disclaimer, notice: result.notice });
+          setState({
+            phase: "ready",
+            items: result.items,
+            disclaimer: result.disclaimer,
+            notice: result.notice,
+            nextCursor: result.nextCursor ?? null,
+          });
         } else if (!soft) {
           setState({ phase: "error", message: result.message });
         }
@@ -78,6 +89,8 @@ export function NewsListScreen() {
         if (controller.signal.aborted) return;
         if (error instanceof MobileApiError && error.kind === "cancelled") return;
         if (!soft) setState({ phase: "error", message: "Articles could not be loaded." });
+      } finally {
+        if (!controller.signal.aborted) setRefreshing(false);
       }
     })();
     return () => controller.abort();
@@ -90,12 +103,50 @@ export function NewsListScreen() {
 
   useOnReconnect(softReload);
 
+  function reload() {
+    forceRef.current = true;
+    setRefreshing(true);
+    setAttempt((value) => value + 1);
+  }
+
+  async function loadMore() {
+    if (state.phase !== "ready" || !state.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    const target = await readCatalogueTarget();
+    if ("error" in target) {
+      setLoadingMore(false);
+      return;
+    }
+    try {
+      const result = await loadArticleList({
+        origin: target.origin,
+        offline: target.offline,
+        force: true,
+        cache: deviceJsonCache(),
+        now: new Date(),
+        category,
+        q: submitted || undefined,
+        cursor: state.nextCursor,
+      });
+      if (result.status === "ready") {
+        setState({
+          phase: "ready",
+          items: [...state.items, ...result.items],
+          disclaimer: result.disclaimer,
+          notice: result.notice,
+          nextCursor: result.nextCursor ?? null,
+        });
+      }
+    } catch {
+      // Keep the already-loaded page visible.
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   return (
-    <ScreenContainer>
-      <SectionHeader
-        title="News & Guides"
-        description="Published IPO education and updates from IPO Singh. Missing articles stay empty — nothing is invented."
-      />
+    <ScreenContainer refreshing={refreshing} onRefresh={reload}>
+      <SectionHeader title="News" />
       <FilterChips label="Category" value={category} onChange={setCategory} options={contentCategoryChoices} />
       <View style={{ gap: mobileTheme.spacing[2] }}>
         <TextInput
@@ -153,10 +204,14 @@ export function NewsListScreen() {
             <ArticleCard
               key={article.id}
               article={article}
+              origin={mediaOrigin}
               onPress={() => router.push({ pathname: "/news/[slug]", params: { slug: article.slug } })}
             />
           ))
         : null}
+      {state.phase === "ready" && state.nextCursor ? (
+        <PrimaryButton label="Load more" loading={loadingMore} onPress={() => void loadMore()} />
+      ) : null}
       <AppText size="sm" tone="muted">
         {state.phase === "ready" ? state.disclaimer : contentDisclaimer}
       </AppText>
@@ -164,9 +219,10 @@ export function NewsListScreen() {
   );
 }
 
-function ArticleCard({ article, onPress }: { article: PublicArticleSummary; onPress: () => void }) {
+function ArticleCard({ article, origin, onPress }: { article: PublicArticleSummary; origin: string; onPress: () => void }) {
   const { palette } = useTheme();
   const [failed, setFailed] = useState(false);
+  const coverUri = absoluteArticleMediaUrl(origin, article.cover?.url);
   return (
     <Pressable
       accessibilityRole="button"
@@ -181,12 +237,12 @@ function ArticleCard({ article, onPress }: { article: PublicArticleSummary; onPr
         backgroundColor: palette.surface,
       }}
     >
-      {article.cover && !failed ? (
+      {coverUri && !failed ? (
         <Image
-          source={{ uri: article.cover.url }}
+          source={{ uri: coverUri }}
           style={{ width: "100%", height: 140, borderRadius: mobileTheme.radius.md }}
           contentFit="cover"
-          accessibilityLabel={article.cover.alt}
+          accessibilityLabel={article.cover?.alt ?? article.title}
           onError={() => setFailed(true)}
         />
       ) : null}

@@ -113,10 +113,10 @@ describe("editorial articles", () => {
     );
     assert.equal(listed.items.length, 2);
     assert.match(listed.disclaimer, /not investment advice/i);
-    assert.equal(listed.items.some((item) => item.category === "market-education"), true);
+    assert.equal(listed.items.some((item) => item.category === "gmp-updates"), true);
 
     const guides = publicArticleListSchema.parse(
-      await (await fetch(`${server.url}/api/v1/articles?category=guides`, { headers: { connection: "close" } })).json(),
+      await (await fetch(`${server.url}/api/v1/articles?category=allotment-updates`, { headers: { connection: "close" } })).json(),
     );
     assert.equal(guides.items.length, 1);
     assert.equal(guides.items[0]?.slug, "how-ipo-allotment-status-works");
@@ -155,7 +155,7 @@ describe("editorial articles", () => {
     await register.arrayBuffer();
     const staff = await accounts.findUserByEmail("editor@example.com");
     assert.ok(staff);
-    await accounts.saveUser({ ...staff, role: "admin" });
+    await accounts.saveUser({ ...staff, role: "super-admin" });
 
     const created = adminArticleSchema.parse(
       await (

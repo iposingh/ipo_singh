@@ -17,6 +17,7 @@ import { SubscriptionObservationModel } from "./subscription-observation.ts";
 import { SyncRunModel } from "./sync-run.ts";
 import { NotificationBaselineModel, NotificationModel } from "./notification.ts";
 import { PushAttemptModel, PushTokenModel } from "./push-token.ts";
+import { ArticleModel } from "./article.ts";
 import { PromotionBannerModel, PromotionImageModel } from "./promotion.ts";
 import { WatchlistModel } from "./watchlist.ts";
 
@@ -41,6 +42,7 @@ const indexedModels = [
   WatchlistModel,
   PromotionBannerModel,
   PromotionImageModel,
+  ArticleModel,
   NotificationModel,
   NotificationBaselineModel,
   PushTokenModel,

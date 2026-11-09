@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PublicArticleDetail } from "@ipo-singh/contracts";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Linking, Pressable, View } from "react-native";
+import { Linking, Pressable, Share, View } from "react-native";
 import { MobileApiError } from "../api/errors";
 import { deviceJsonCache } from "../catalogue/device-store";
 import { issueRoute } from "../catalogue/routes";
 import { loadArticleDetail } from "../content/load";
-import { articleBodyParagraphs, articleCategoryText, articlePublishedLabel } from "../content/model";
+import { absoluteArticleMediaUrl, articleBodyParagraphs, articleCategoryText, articlePublishedLabel } from "../content/model";
 import { AppText } from "../components/app-text";
 import { ErrorState } from "../components/error-state";
 import { LoadingSkeleton } from "../components/loading-skeleton";
@@ -29,6 +29,7 @@ export function NewsDetailScreen({ slug }: { slug: string }) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<DetailState>({ phase: "loading" });
   const [coverFailed, setCoverFailed] = useState(false);
+  const [mediaOrigin, setMediaOrigin] = useState("");
   const softRef = useRef(false);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function NewsDetailScreen({ slug }: { slug: string }) {
         setState({ phase: "error", message: target.error });
         return;
       }
+      setMediaOrigin(target.origin);
       try {
         const result = await loadArticleDetail({
           origin: target.origin,
@@ -76,7 +78,9 @@ export function NewsDetailScreen({ slug }: { slug: string }) {
   useOnReconnect(softReload);
 
   const coverUrl =
-    state.phase === "ready" && state.article.cover ? safeCitationUrl(state.article.cover.url) : null;
+    state.phase === "ready" && state.article.cover
+      ? absoluteArticleMediaUrl(mediaOrigin, state.article.cover.url) ?? safeCitationUrl(state.article.cover.url)
+      : null;
   const coverAlt = state.phase === "ready" ? state.article.cover?.alt : undefined;
 
   return (
@@ -181,6 +185,15 @@ export function NewsDetailScreen({ slug }: { slug: string }) {
               })}
             </View>
           ) : null}
+          <PrimaryButton
+            label="Share"
+            onPress={() => {
+              void Share.share({
+                message: `${state.article.title}\n${state.article.summary}`,
+                title: state.article.title,
+              }).catch(() => undefined);
+            }}
+          />
           <AppText size="sm" tone="muted">
             {state.disclaimer}
           </AppText>

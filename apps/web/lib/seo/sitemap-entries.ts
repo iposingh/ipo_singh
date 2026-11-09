@@ -12,13 +12,14 @@ export type SitemapEntry = {
   lastModified?: Date;
 };
 
-/** Stable public pages plus stored IPO detail URLs. No filters, months, or comparisons. */
-export function sitemapEntries(origin: URL, issues: readonly SitemapIssue[]): SitemapEntry[] {
+/** Stable public pages plus stored IPO detail URLs and published news. */
+export async function sitemapEntries(origin: URL, issues: readonly SitemapIssue[]): Promise<SitemapEntry[]> {
   const pages: SitemapEntry[] = indexablePaths.map((item) => ({
     url: new URL(item.path, origin).href,
   }));
-  const articles: SitemapEntry[] = listPublishedArticles().map((article) => {
-    const entry: SitemapEntry = { url: new URL(`/blog/${article.slug}`, origin).href };
+  const published = await listPublishedArticles();
+  const articles: SitemapEntry[] = published.map((article) => {
+    const entry: SitemapEntry = { url: new URL(`/news/${article.slug}`, origin).href };
     if (article.updatedAt) {
       const parsed = Date.parse(article.updatedAt);
       if (!Number.isNaN(parsed)) entry.lastModified = new Date(parsed);

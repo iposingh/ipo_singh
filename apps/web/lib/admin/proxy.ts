@@ -26,6 +26,14 @@ function apiPath(method: string, suffix: string): string | null {
   if (method === "GET" && suffix === "allotment-verifications") return "/api/v1/admin/allotment-verifications";
   if (method === "POST" && suffix === "allotment-verifications/confirm") return "/api/v1/admin/allotment-verifications/confirm";
   if (method === "POST" && suffix === "allotment-verifications/retry") return "/api/v1/admin/allotment-verifications/retry";
+  if (method === "GET" && suffix === "articles") return "/api/v1/admin/articles";
+  if (method === "POST" && suffix === "articles") return "/api/v1/admin/articles";
+  const article = /^articles\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(suffix);
+  if (article && (method === "GET" || method === "PATCH" || method === "DELETE")) return `/api/v1/admin/articles/${article[1]}`;
+  const articleAction = /^articles\/([a-z0-9]+(?:-[a-z0-9]+)*)\/(publish|unpublish|archive)$/.exec(suffix);
+  if (articleAction && method === "POST") return `/api/v1/admin/articles/${articleAction[1]}/${articleAction[2]}`;
+  const articleCover = /^articles\/([a-z0-9]+(?:-[a-z0-9]+)*)\/cover$/.exec(suffix);
+  if (articleCover && (method === "POST" || method === "DELETE")) return `/api/v1/admin/articles/${articleCover[1]}/cover`;
   return null;
 }
 

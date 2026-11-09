@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, type TableColumn } from "@/components/ui/table";
 import { AdminResource, recordObject } from "@/features/admin/admin-resource";
+import { readCsrfToken } from "@/features/auth/csrf";
 
 type Row = {
   ipoId: string;
@@ -103,10 +104,24 @@ function rowsFrom(payload: unknown): Row[] | null {
   return rows;
 }
 
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    const record = recordObject(body);
+    if (record && typeof record.message === "string" && record.message.trim()) return record.message.trim();
+    if (record && typeof record.error === "string" && record.error.trim()) return record.error.trim();
+  } catch {
+    // Fall through to status-based copy.
+  }
+  if (response.status === 401 || response.status === 403) return "Check the current password and try again.";
+  if (response.status === 404) return "That IPO was not found.";
+  if (response.status === 400) return "Request validation failed. Check the registrar URL.";
+  return "The request was refused.";
+}
+
 export function AllotmentPanel() {
   const [selectedId, setSelectedId] = useState("");
   const [password, setPassword] = useState("");
-  const [evidenceNote, setEvidenceNote] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -116,16 +131,20 @@ export function AllotmentPanel() {
     setPending(true);
     setMessage(null);
     try {
+      const headers = new Headers({ accept: "application/json", "content-type": "application/json" });
+      const csrf = readCsrfToken(document.cookie);
+      if (csrf) headers.set("x-csrf-token", csrf);
       const response = await fetch(path, {
         method: "POST",
-        headers: { accept: "application/json", "content-type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
       if (!response.ok) {
-        setMessage("The request was refused. Check the password and evidence fields.");
+        setMessage(await readErrorMessage(response));
         return;
       }
-      setMessage("Saved.");
+      setMessage(path.endsWith("/confirm") ? "Allotment confirmed successfully." : "Saved.");
+      setPassword("");
       setVersion((value) => value + 1);
     } catch {
       setMessage("The request could not be completed.");
@@ -139,8 +158,9 @@ export function AllotmentPanel() {
       <Card>
         <h1 className="text-xl font-semibold text-foreground">Allotment verification</h1>
         <p className="mt-2 text-sm leading-6 text-muted">
-          Automated checks use official registrar portals where permitted. Manual confirmation still requires a verified source URL and an explanation.
-          A passed allotment date alone does not confirm results.
+          Automated checks use official registrar portals where permitted (KFin, MUFG Intime, Bigshare). Manual confirmation
+          requires the current Super Admin password and a verified registrar allotment URL. A passed allotment date alone does
+          not confirm results.
         </p>
       </Card>
       <AdminResource key={version} path="/api/admin/allotment-verifications" label="Loading allotment verification">
@@ -161,7 +181,6 @@ export function AllotmentPanel() {
                       const next = rows.find((row) => row.ipoId === event.target.value) ?? null;
                       setSelectedId(event.target.value);
                       setSourceUrl(next?.sourceUrl ?? "");
-                      setEvidenceNote("");
                       setMessage(null);
                     }}
                     className="h-10 rounded-control border border-border bg-background px-3"
@@ -169,7 +188,7 @@ export function AllotmentPanel() {
                     <option value="">Choose an IPO</option>
                     {rows.map((row) => (
                       <option key={row.ipoId} value={row.ipoId}>
-                        {row.companyName ?? row.slug ?? row.ipoId}
+                        {`${row.companyName ?? row.slug ?? row.ipoId}${row.registrarName ? ` · ${row.registrarName}` : ""}${row.slug ? ` · ${row.slug}` : ""}`}
                       </option>
                     ))}
                   </select>
@@ -177,10 +196,10 @@ export function AllotmentPanel() {
                 {selected ? (
                   <>
                     <p className="text-sm text-muted">{selected.note ?? "No verification note is stored."}</p>
-                    {selected.verificationEvidence ? <p className="text-sm text-foreground">Evidence: {selected.verificationEvidence}</p> : null}
+                    {selected.verificationEvidence ? <p className="text-sm text-foreground">Audit: {selected.verificationEvidence}</p> : null}
                     {selected.sourceUrl ? (
                       <a href={selected.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium underline-offset-2 hover:underline">
-                        Open evidence source
+                        Open stored registrar URL
                       </a>
                     ) : null}
                     <label className="grid gap-1 text-sm">
@@ -194,21 +213,13 @@ export function AllotmentPanel() {
                       />
                     </label>
                     <label className="grid gap-1 text-sm">
-                      Source URL (manual confirm)
+                      Registrar allotment URL
                       <input
                         type="url"
                         value={sourceUrl}
                         onChange={(event) => setSourceUrl(event.target.value)}
+                        placeholder="https://"
                         className="h-10 rounded-control border border-border bg-background px-3"
-                      />
-                    </label>
-                    <label className="grid gap-1 text-sm">
-                      Evidence note (manual confirm)
-                      <textarea
-                        value={evidenceNote}
-                        onChange={(event) => setEvidenceNote(event.target.value)}
-                        className="min-h-24 rounded-control border border-border bg-background px-3 py-2"
-                        maxLength={1000}
                       />
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -232,7 +243,6 @@ export function AllotmentPanel() {
                           void post("/api/admin/allotment-verifications/confirm", {
                             ipoId: selected.ipoId,
                             sourceUrl,
-                            evidenceNote,
                             currentPassword: password,
                           })
                         }
@@ -242,7 +252,7 @@ export function AllotmentPanel() {
                     </div>
                   </>
                 ) : null}
-                {message ? <p className="text-sm text-muted">{message}</p> : null}
+                {message ? <p className="text-sm text-muted" aria-live="polite">{message}</p> : null}
               </Card>
             </div>
           );

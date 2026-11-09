@@ -352,6 +352,7 @@ test("native chart guards refuse non-finite values and cap dense series", () => 
     series: 0,
   }));
   assert.equal(sanitizePlotPointsForNative(dense).length, chartRenderPointLimit);
+  assert.equal(chartRenderPointLimit <= 64, true);
   const bars = sanitizeCategoryBarsForNative([
     { key: "TOTAL", label: "Total", times: 2 },
     { key: "BAD", label: "Bad", times: Number.NEGATIVE_INFINITY },

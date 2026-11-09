@@ -10,5 +10,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!origin) return [];
   const loaded = await loadSitemapIssues();
   const issues = loaded.status === "ready" ? loaded.issues : [];
-  return sitemapEntries(origin, issues);
+  return await sitemapEntries(origin, issues);
 }

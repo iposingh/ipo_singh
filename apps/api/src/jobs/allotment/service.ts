@@ -127,6 +127,8 @@ export async function applyAllotmentConfirmation(input: {
   record: AllotmentVerificationRecord;
   notifier?: AllotmentConfirmNotifier | null;
   now: Date;
+  /** When true, refresh registrar URL / audit evidence on an already-confirmed IPO without re-notifying. */
+  allowUrlRefresh?: boolean;
 }): Promise<AllotmentVerificationRecord> {
   if (input.issue.listingConfirmed || input.issue.status === "listed") {
     return {
@@ -140,10 +142,11 @@ export async function applyAllotmentConfirmation(input: {
   let notificationDispatch: AllotmentNotificationDispatch = input.record.notificationDispatch;
   let notificationEligibleDevices = input.record.notificationEligibleDevices;
   const existing = await input.verifications.findByIpo(input.issue.ipoId);
-  if (existing?.allotmentConfirmed) {
+  if (existing?.allotmentConfirmed && !input.allowUrlRefresh) {
     // Never regress a confirmed allotment; keep the first confirmation evidence.
     return { ...existing };
   }
+  const firstConfirmation = input.record.allotmentConfirmed && !existing?.allotmentConfirmed;
   if (input.record.allotmentConfirmed) {
     const ipo = await input.store.ipos.findById(input.issue.ipoId);
     if (ipo && ipo.status !== "listed") {
@@ -151,10 +154,20 @@ export async function applyAllotmentConfirmation(input: {
         ...ipo,
         status: ipo.status === "open" || ipo.status === "upcoming" ? ipo.status : "allotment",
         allotmentConfirmed: true,
-        allotmentConfirmedAt: input.now,
+        allotmentConfirmedAt: ipo.allotmentConfirmedAt ?? input.now,
       });
+      // Persist the verified registrar URL on this IPO's registrar record (ids are per-IPO).
+      if (ipo.registrarId && input.record.sourceUrl) {
+        const registrar = await input.store.registrars.findById(ipo.registrarId);
+        if (registrar && registrar.allotmentUrl !== input.record.sourceUrl) {
+          await input.store.registrars.upsert({
+            ...registrar,
+            allotmentUrl: input.record.sourceUrl,
+          });
+        }
+      }
     }
-    if (input.notifier) {
+    if (firstConfirmation && input.notifier) {
       const notified = normalizeNotifyResult(
         await input.notifier({
           ipoId: input.issue.ipoId,
@@ -166,8 +179,11 @@ export async function applyAllotmentConfirmation(input: {
       );
       notificationDispatch = notified.dispatch;
       notificationEligibleDevices = notified.eligibleDevices;
-    } else {
+    } else if (firstConfirmation) {
       notificationDispatch = "skipped";
+    } else {
+      notificationDispatch = existing?.notificationDispatch ?? input.record.notificationDispatch;
+      notificationEligibleDevices = existing?.notificationEligibleDevices ?? input.record.notificationEligibleDevices;
     }
     await input.cache?.invalidateAfterSync("issue", input.issue.slug);
     await input.cache?.invalidateAfterSync("listings", "catalogue");
@@ -176,8 +192,15 @@ export async function applyAllotmentConfirmation(input: {
   const saved = await input.verifications.upsert(
     toStored({
       ...input.record,
+      // Keep first confirmation evidence when refreshing URL only.
+      verificationEvidence: firstConfirmation
+        ? input.record.verificationEvidence
+        : (existing?.verificationEvidence ?? input.record.verificationEvidence),
+      verifiedAt: existing?.verifiedAt ?? input.record.verifiedAt,
       notificationDispatch,
       notificationEligibleDevices,
+      notificationAccepted: existing?.notificationAccepted ?? input.record.notificationAccepted,
+      notificationRejected: existing?.notificationRejected ?? input.record.notificationRejected,
     }),
   );
   return { ...saved };
@@ -383,34 +406,47 @@ export async function adminConfirmStoredAllotment(input: {
   cache?: Pick<CacheService, "invalidateAfterSync"> | null;
   issue: AllotmentVerifyIssue;
   auditor: string;
-  evidenceNote: string;
+  evidenceNote?: string | null;
   sourceUrl: string;
   notifier?: AllotmentConfirmNotifier | null;
   now: Date;
 }): Promise<AllotmentVerificationRecord | { error: string }> {
+  let parsedSource: URL;
+  try {
+    parsedSource = new URL(input.sourceUrl);
+  } catch {
+    return { error: "Invalid URL. Enter a valid HTTPS registrar allotment page." };
+  }
+  if (parsedSource.protocol !== "https:") {
+    return { error: "Invalid URL. Registrar allotment pages must use HTTPS." };
+  }
+  // Require the submitted URL itself to sit on an approved registrar host (no directory fallback).
+  const url = verifiedAllotmentUrl({ statusPage: input.sourceUrl });
+  if (!url) {
+    return { error: "Unapproved registrar domain or invalid allotment URL. Use an official HTTPS registrar portal." };
+  }
   const shaped = adminConfirmShape({
     ipoId: input.issue.ipoId,
     now: input.now,
     auditor: input.auditor,
     evidenceNote: input.evidenceNote,
+    sourceUrl: url,
   });
   if ("error" in shaped) return shaped;
-  const url = verifiedAllotmentUrl({
-    name: input.issue.registrarName,
-    statusPage: input.sourceUrl,
-  });
-  if (!url) return { error: "A verified official registrar source URL is required." };
+  const existing = await input.verifications.findByIpo(input.issue.ipoId);
+  const alreadyConfirmed = existing?.allotmentConfirmed === true || input.issue.allotmentConfirmed === true;
   const record: AllotmentVerificationRecord = {
     ...shaped,
     registrarId: input.issue.registrarId,
     verificationMethod: "admin-audit",
     sourceUrl: url,
-    matchedCompanyId: null,
-    monitoringStartedAt: null,
-    notificationDispatch: "not-sent",
-    notificationEligibleDevices: null,
-    notificationAccepted: null,
-    notificationRejected: null,
+    matchedCompanyId: existing?.matchedCompanyId ?? null,
+    monitoringStartedAt: existing?.monitoringStartedAt ?? null,
+    // Preserve prior notification dispatch so corrections do not re-broadcast.
+    notificationDispatch: alreadyConfirmed ? (existing?.notificationDispatch ?? "skipped") : "not-sent",
+    notificationEligibleDevices: alreadyConfirmed ? (existing?.notificationEligibleDevices ?? null) : null,
+    notificationAccepted: alreadyConfirmed ? (existing?.notificationAccepted ?? null) : null,
+    notificationRejected: alreadyConfirmed ? (existing?.notificationRejected ?? null) : null,
     errorName: null,
   };
   return applyAllotmentConfirmation({
@@ -419,7 +455,8 @@ export async function adminConfirmStoredAllotment(input: {
     cache: input.cache,
     issue: input.issue,
     record,
-    notifier: input.notifier,
+    notifier: alreadyConfirmed ? null : input.notifier,
     now: input.now,
+    allowUrlRefresh: true,
   });
 }

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Constants from "expo-constants";
-import { router } from "expo-router";
 import { Linking, Pressable, Share, View } from "react-native";
 import { useAuth } from "../auth/provider";
 import { AppText } from "../components/app-text";
@@ -102,9 +101,6 @@ function WelcomeAccountCard({
         <AppText weight="semibold" size="lg">
           {name ?? "Signed in"}
         </AppText>
-        <AppText size="sm" tone="muted">
-          Account, profile, and sign-out options are below.
-        </AppText>
       </View>
     );
   }
@@ -186,7 +182,7 @@ export function SettingsScreen() {
 
   return (
     <ScreenContainer keyboardDismissMode="on-drag" safeBottom>
-      <SectionHeader title="Settings" description="Account, sharing, alerts, appearance, and legal pages." />
+      <SectionHeader title="Settings" />
 
       {/* FIRST — Welcome / Account */}
       <WelcomeAccountCard
@@ -226,29 +222,14 @@ export function SettingsScreen() {
       />
 
       {/* Remaining options */}
-      <SectionHeader
-        title="Notification preferences"
-        description="Category preferences need an account. Global allotment phone reminders do not require a watchlisted IPO. Email is not sent."
-      />
+      <SectionHeader title="Notification preferences" />
       {state.phase === "ready" ? <AccountPreferencesForm /> : null}
       {state.phase === "signed-out" || state.phase === "offline" ? <AnonymousAllotmentReminders /> : null}
-      {state.phase === "signed-out" ? (
-        <AppText size="sm" tone="muted">
-          Sign in above to manage opening, closing, allotment results, and listing reminder categories.
-        </AppText>
-      ) : null}
 
-      <SectionHeader
-        title="Appearance"
-        description={
-          state.phase === "ready"
-            ? "Light, Dark, or System. A signed-in choice is saved on the account and on this device."
-            : "Light, Dark, or System. The choice is saved on this device for guests."
-        }
-      />
+      <SectionHeader title="Appearance" />
       <ThemeToggle />
 
-      <SectionHeader title="Legal & about" description="Privacy and Terms open the IPO Singh website when the public site address is configured." />
+      <SectionHeader title="Legal & about" />
       <View style={{ gap: mobileTheme.spacing[1] }}>
         {(["contact", "privacy", "terms", "about"] as const).map((id) => {
           const page = legalPages.find((item) => item.id === id);
@@ -271,14 +252,6 @@ export function SettingsScreen() {
           {message}
         </AppText>
       ) : null}
-
-      <SectionHeader title="Learn" description="Published IPO guides and updates from IPO Singh. Empty when nothing is published." />
-      <SettingsRow
-        label="News & Guides"
-        description="Educational articles and IPO updates. No invented market news."
-        accessibilityHint="Opens published articles"
-        onPress={() => router.push("/news")}
-      />
 
       <View style={{ gap: mobileTheme.spacing[1], paddingTop: mobileTheme.spacing[2] }}>
         <AppText size="sm" tone="muted">

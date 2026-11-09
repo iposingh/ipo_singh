@@ -97,12 +97,13 @@ async function buildRows(database: DatabaseHandle): Promise<AdminAllotmentVerifi
 
 export function mountAdminAllotmentRoutes(router: Router, deps: AdminAllotmentDeps): void {
   const administrators = ["admin", "super-admin"] as const;
+  const superAdministrators = ["super-admin"] as const;
 
   router.get("/allotment-verifications", deps.protect(administrators), (req, res, next) => {
     void listVerifications(req, res, next, deps);
   });
 
-  router.post("/allotment-verifications/confirm", deps.protect(administrators), (req, res, next) => {
+  router.post("/allotment-verifications/confirm", deps.protect(superAdministrators), (req, res, next) => {
     void confirmVerification(req, res, next, deps);
   });
 
@@ -162,12 +163,17 @@ async function confirmVerification(req: Request, res: Response, next: NextFuncti
         allotmentUrl: identified.portalUrl,
       },
       auditor: actor,
-      evidenceNote: parsed.data.evidenceNote,
       sourceUrl: parsed.data.sourceUrl,
       notifier: createAllotmentConfirmNotifier({ database }),
       now: new Date(),
     });
-    if ("error" in result) throw new HttpError(400, "validation_error", result.error);
+    if ("error" in result) {
+      const message = result.error;
+      if (/password/i.test(message)) throw new HttpError(403, "forbidden", message);
+      if (/url|registrar|domain/i.test(message)) throw new HttpError(400, "validation_error", message);
+      if (/already/i.test(message)) throw new HttpError(400, "validation_error", message);
+      throw new HttpError(400, "validation_error", message);
+    }
     await deps.record({ actorUserId: actor, action: "allotment_confirm", outcome: "succeeded", targetUserId: null });
     const [row] = (await buildRows(database)).filter((item) => item.ipoId === ipo.id);
     res.json(

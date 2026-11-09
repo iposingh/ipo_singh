@@ -17,7 +17,7 @@ const summary: PublicArticleSummary = {
   slug: "what-is-grey-market-premium",
   title: "What is Grey Market Premium (GMP)?",
   summary: "An educational overview of unofficial grey-market premiums.",
-  category: "market-education",
+  category: "gmp-updates",
   authorName: "IPO Singh Editorial",
   sourceName: "IPO Singh",
   publishedAt: "2026-10-20T04:30:00.000Z",
@@ -28,11 +28,11 @@ const summary: PublicArticleSummary = {
 
 test("article paths, categories, and sanitized paragraphs stay editorial-safe", () => {
   assert.equal(articlesPath(), "/api/v1/articles");
-  assert.equal(articlesPath({ category: "guides", q: " allotment " }), "/api/v1/articles?category=guides&q=allotment");
+  assert.equal(articlesPath({ category: "allotment-updates", q: " allotment " }), "/api/v1/articles?category=allotment-updates&q=allotment");
   assert.equal(articleDetailPath("what-is-grey-market-premium"), "/api/v1/articles/what-is-grey-market-premium");
   assert.equal(articleDetailPath("../secret"), null);
-  assert.equal(articleCategoryText("ipo-news"), "IPO News");
-  assert.equal(articleCategoryText("market-education"), "Market Education");
+  assert.equal(articleCategoryText("ipo-updates"), "IPO Updates");
+  assert.equal(articleCategoryText("gmp-updates"), "GMP Updates");
   assert.equal(articlePublishedLabel(summary.publishedAt), "20 Oct 2026");
   assert.match(articleCardAccessibilityLabel(summary), /Source IPO Singh/);
   assert.deepEqual(articleBodyParagraphs("One.\n\nTwo <b>bold</b>."), ["One.", "Two bold."]);
@@ -46,14 +46,12 @@ test("article loads cache offline and leave an empty published list empty", asyn
   const body = publicArticleListSchema.parse({
     items: [summary],
     disclaimer: articleFinancialDisclaimer,
+    nextCursor: null,
   });
   let calls = 0;
   const fetchImpl: typeof fetch = (input) => {
     calls += 1;
     const url = String(input);
-    if (url.endsWith("/api/v1/articles")) {
-      return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
-    }
     if (url.includes("/api/v1/articles/what-is-grey-market-premium")) {
       return Promise.resolve(
         new Response(
@@ -69,6 +67,9 @@ test("article loads cache offline and leave an empty published list empty", asyn
           { status: 200, headers: { "content-type": "application/json" } },
         ),
       );
+    }
+    if (url.includes("/api/v1/articles")) {
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
     }
     return Promise.resolve(new Response("{}", { status: 404 }));
   };
@@ -103,6 +104,6 @@ test("article loads cache offline and leave an empty published list empty", asyn
     assert.deepEqual(articleBodyParagraphs(detail.article.bodyMarkdown), ["Educational only.", "No invented news."]);
   }
 
-  assert.equal(articleListCacheKey(origin, "all", ""), `ipo-singh.articles.${encodeURIComponent(origin)}.all.`);
+  assert.equal(articleListCacheKey(origin, "all", "", ""), `ipo-singh.articles.${encodeURIComponent(origin)}.all..`);
   assert.equal(articleDetailCacheKey(origin, summary.slug).includes(summary.slug), true);
 });

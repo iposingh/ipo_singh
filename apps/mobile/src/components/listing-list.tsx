@@ -133,7 +133,7 @@ export function ListingList({
       renderSectionHeader={({ section }) =>
         listedMode ? null : (
           <View style={{ marginTop: mobileTheme.spacing[2], marginBottom: mobileTheme.spacing[3] }}>
-            <SectionHeader title={section.title} description={section.description} />
+            <SectionHeader title={section.title} description={section.description || undefined} />
           </View>
         )
       }

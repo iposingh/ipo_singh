@@ -18,4 +18,17 @@ test("allotment links stay on the official KFin, MUFG Intime, and Bigshare pages
   assert.equal(verifiedAllotmentUrl({ name: "Unknown Registrar", statusPage: "https://registrar.example/allotment" }), null);
   assert.equal(verifiedAllotmentUrl({ name: "Bigshare Services", statusPage: "https://user:secret@ipo.bigshareonline.com/ipo_status.html" }), "https://ipo.bigshareonline.com/ipo_status.html");
   assert.equal(verifiedAllotmentUrl({ name: null, slug: null, statusPage: null }), null);
+  assert.equal(verifiedAllotmentUrl({ name: "Cameo Corporate Services Ltd.", statusPage: "https://ipo.cameoindia.com/" }), "https://ipo.cameoindia.com/");
+  assert.equal(
+    verifiedAllotmentUrl({ name: "Maashitla Securities Pvt. Ltd.", statusPage: "https://maashitla.com/allotment-status/public-issues/" }),
+    "https://maashitla.com/allotment-status/public-issues/",
+  );
+  // Vedant Poly Fabs / Johnsoncab references on IPOJi are not registrar portals.
+  assert.equal(verifiedAllotmentUrl({ name: "Cameo", statusPage: "https://ipoji.com/ipo-allotment-status/vedant-poly-fabs-ipo" }), "https://ipo.cameoindia.com/");
+  assert.equal(verifiedAllotmentUrl({ name: null, statusPage: "https://ipoji.com/ipo-allotment-status/vedant-poly-fabs-ipo" }), null);
+  assert.equal(verifiedAllotmentUrl({ name: null, statusPage: "https://ipoji.com/ipo-allotment-status/johnsoncab-electricals-ipo" }), null);
+  assert.equal(
+    verifiedAllotmentUrl({ statusPage: "https://maashitla.com/allotment-status/public-issues/" }),
+    "https://maashitla.com/allotment-status/public-issues/",
+  );
 });

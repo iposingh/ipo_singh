@@ -14,7 +14,7 @@ test("public routes have unique paths and labels", () => {
 test("primary navigation separates Mainboard and SME", () => {
   assert.deepEqual(
     primaryNav.map((route) => route.href),
-    ["/ipos/mainboard", "/ipos/sme", "/ipo-calendar", "/compare", "/allotment"],
+    ["/ipos/mainboard", "/ipos/sme", "/ipo-calendar", "/compare", "/allotment", "/news"],
   );
   assert.deepEqual(
     bottomNav.map((route) => route.href),

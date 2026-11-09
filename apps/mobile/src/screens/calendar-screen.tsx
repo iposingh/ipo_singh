@@ -131,10 +131,7 @@ export function CalendarScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: palette.background }}>
       <ScreenContainer>
-        <SectionHeader
-          title="IPO Calendar"
-          description="Opening, closing, allotment, and listing dates in India Standard Time. Missing dates stay blank."
-        />
+        <SectionHeader title="IPO Calendar" />
         <FilterChips
           label="Board"
           value={board}
@@ -244,10 +241,7 @@ export function CalendarScreen() {
           <View style={{ gap: mobileTheme.spacing[3] }} accessibilityLabel={`Events on ${formatIstDate(selectedDay)}`}>
             <AppText weight="semibold">{formatIstDate(selectedDay)}</AppText>
             {selectedEvents.length === 0 ? (
-              <EmptyState
-                title="No dates are stored for this day."
-                description="Opening, closing, allotment, and listing dates appear here when the catalogue has them."
-              />
+              <EmptyState title="No dates are stored for this day." />
             ) : (
               selectedEvents.map((item) => (
                 <View key={`${item.date}-${item.event}-${item.ipo.id}`} style={{ gap: mobileTheme.spacing[2] }}>

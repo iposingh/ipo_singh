@@ -43,8 +43,8 @@ test("accepts a public site origin and refuses a vendor host", () => {
   assert.equal(siteUrl("https://www.iposingh.com", "production")?.href, "https://www.iposingh.com/");
 });
 
-test("lists stored IPO urls and skips filters, search, and duplicate slugs", () => {
-  const entries = sitemapEntries(origin, [
+test("lists stored IPO urls and skips filters, search, and duplicate slugs", async () => {
+  const entries = await sitemapEntries(origin, [
     { slug: "stored-mills", updatedAt: "2026-10-02T00:00:00.000Z" },
     { slug: "stored-mills", updatedAt: null },
     { slug: "../admin", updatedAt: null },
@@ -64,7 +64,7 @@ test("lists stored IPO urls and skips filters, search, and duplicate slugs", () 
   assert.equal(entries.find((entry) => entry.url.endsWith("/sme-alloys"))?.lastModified, undefined);
   const staticAndArticles = urls.filter((url) => !url.includes("/ipos/stored") && !url.includes("/ipos/sme-alloys"));
   assert.equal(staticAndArticles.length >= indexablePaths.length, true);
-  assert.equal(urls.some((url) => url.includes("/blog")), true);
+  assert.equal(urls.some((url) => url.includes("/news")), true);
 });
 
 test("private robots paths keep account surfaces and placeholders out of crawlers", () => {

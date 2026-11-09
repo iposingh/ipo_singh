@@ -38,7 +38,6 @@ export const adminAllotmentConfirmRequestSchema = z
   .object({
     ipoId: z.string().min(1).max(80),
     sourceUrl: z.string().url().max(2_000),
-    evidenceNote: z.string().trim().min(20).max(1_000),
     currentPassword: z.string().min(1).max(128),
   })
   .strict();

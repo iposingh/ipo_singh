@@ -27,6 +27,7 @@ const sessionRefreshMs = 5 * 60_000;
 const navLinks = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/banners", label: "Banners" },
+  { href: "/admin/articles", label: "News Management" },
   { href: "/admin/records", label: "Records" },
   { href: "/admin/allotment", label: "Allotment" },
   { href: "/admin/sync", label: "Sync" },

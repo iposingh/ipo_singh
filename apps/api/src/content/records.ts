@@ -10,9 +10,19 @@ export type ArticleCover = {
   alt: string;
 } | null;
 
+export type ArticleCoverImage = {
+  contentType: "image/png" | "image/jpeg" | "image/webp";
+  width: number;
+  height: number;
+  byteLength: number;
+  data: Buffer;
+  updatedAt: Date;
+} | null;
+
 export type ArticleRecord = {
   id: string;
   slug: string;
+  headline?: string;
   title: string;
   summary: string;
   category: ArticleCategory;
@@ -27,6 +37,10 @@ export type ArticleRecord = {
   citations: ArticleCitation[];
   evergreen: boolean;
   cover: ArticleCover;
+  coverImage?: ArticleCoverImage;
+  seoDescription?: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
 };
 
 export type ArticleStore = {
@@ -35,4 +49,5 @@ export type ArticleStore = {
   find(id: string): Promise<ArticleRecord | null>;
   insert(record: ArticleRecord): Promise<void>;
   save(record: ArticleRecord): Promise<void>;
+  remove?(id: string): Promise<void>;
 };

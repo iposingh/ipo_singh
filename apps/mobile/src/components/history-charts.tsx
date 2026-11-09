@@ -3,6 +3,7 @@ import type { SubscriptionSnapshot } from "@ipo-singh/contracts";
 import { formatSubscriptionMultiple } from "@ipo-singh/core";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { BarChart, LineChart } from "react-native-gifted-charts";
+import { DeferredNativeChart } from "./deferred-native-chart";
 import {
   availableHistoryRanges,
   canDrawLineChart,
@@ -44,7 +45,7 @@ import { EmptyState } from "./empty-state";
 import { ErrorState } from "./error-state";
 import { LoadingSkeleton } from "./loading-skeleton";
 
-const pointLimit = 80;
+const pointLimit = 48;
 
 function ChoiceRow({ choices, selected, onSelect }: { choices: readonly { key: string; label: string }[]; selected: string; onSelect: (key: string) => void }) {
   const { palette } = useTheme();
@@ -108,9 +109,10 @@ const ObservationChart = memo(function ObservationChart({
   const chartWidth = safeChartFrameWidth(width);
   const spacing = safeChartSpacing(chartWidth, safePoints.length);
   const hidePoints = safePoints.length > pointLimit;
+  // Gifted-charts multi-series dataSet with 1-point bands has crashed Android SVG layout.
   const finiteBands = bands
     .map((band) => band.filter((point) => Number.isFinite(point.value) && Number.isFinite(point.at)))
-    .filter((band) => band.length > 0);
+    .filter((band) => band.length >= 2);
   const dataSet = finiteBands.map((band) => ({
     data: lineChartDataPoints(band, ticks).map((point, index) => {
       const source = band.filter((row) => Number.isFinite(row.value))[index];
@@ -151,34 +153,37 @@ const ObservationChart = memo(function ObservationChart({
     >
       <AppText size="sm">{summary}</AppText>
       <ChartSafeBoundary>
-        <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-          <LineChart
-            data={dataSet.length === 1 ? dataSet[0]!.data : []}
-            dataSet={dataSet.length > 1 ? dataSet : undefined}
-            width={chartWidth}
-            height={168}
-            spacing={spacing}
-            initialSpacing={8}
-            endSpacing={8}
-            curved={false}
-            isAnimated={false}
-            animateOnDataChange={false}
-            thickness={2}
-            color={palette.link}
-            yAxisColor={palette.border}
-            xAxisColor={palette.border}
-            rulesColor={palette.border}
-            yAxisTextStyle={{ color: palette.muted, fontSize: 11 }}
-            xAxisLabelTextStyle={{ color: palette.muted, fontSize: 11 }}
-            yAxisLabelWidth={52}
-            rotateLabel={chartWidth < 360}
-            noOfSections={4}
-            showFractionalValues
-            roundToDigits={2}
-            focusEnabled={false}
-            backgroundColor={palette.surface}
-          />
-        </View>
+        <DeferredNativeChart height={168} label="Preparing line chart">
+          <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={{ height: 168 }}>
+            <LineChart
+              data={dataSet.length === 1 ? dataSet[0]!.data : []}
+              dataSet={dataSet.length > 1 ? dataSet : undefined}
+              width={chartWidth}
+              height={168}
+              spacing={spacing}
+              initialSpacing={8}
+              endSpacing={8}
+              curved={false}
+              isAnimated={false}
+              animateOnDataChange={false}
+              thickness={2}
+              color={palette.link}
+              yAxisColor={palette.border}
+              xAxisColor={palette.border}
+              rulesColor={palette.border}
+              yAxisTextStyle={{ color: palette.muted, fontSize: 11 }}
+              xAxisLabelTextStyle={{ color: palette.muted, fontSize: 11 }}
+              yAxisLabelWidth={52}
+              rotateLabel={chartWidth < 360}
+              noOfSections={4}
+              showFractionalValues
+              roundToDigits={2}
+              focusEnabled={false}
+              backgroundColor={palette.surface}
+              disableScroll
+            />
+          </View>
+        </DeferredNativeChart>
       </ChartSafeBoundary>
       <AppText size="sm" tone="muted">
         {pressHint}
@@ -192,14 +197,20 @@ const ObservationChart = memo(function ObservationChart({
   );
 });
 
+const readingListInitial = 48;
+
 function ReadingList({ title, rows }: { title: string; rows: readonly { key: string; lines: { label: string; value: string }[] }[] }) {
   // Plain views — FlatList nested in the detail ScrollView has crashed Android release builds.
+  // Cap the initial mount; dense 400-day history has frozen the JS thread on detail open.
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded || rows.length <= readingListInitial ? rows : rows.slice(0, readingListInitial);
+  const hidden = rows.length - visible.length;
   return (
     <View accessibilityLabel={title} style={{ gap: mobileTheme.spacing[1] }}>
       <AppText weight="semibold" style={{ paddingBottom: mobileTheme.spacing[2] }}>
         {title}
       </AppText>
-      {rows.map((item) => (
+      {visible.map((item) => (
         <View
           key={item.key}
           accessible
@@ -213,6 +224,18 @@ function ReadingList({ title, rows }: { title: string; rows: readonly { key: str
           ))}
         </View>
       ))}
+      {hidden > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Show ${hidden} more readings`}
+          onPress={() => setExpanded(true)}
+          style={{ minHeight: mobileTheme.sizing.touchTarget, justifyContent: "center" }}
+        >
+          <AppText size="sm" weight="medium" tone="positive">
+            Show {hidden} more readings
+          </AppText>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -380,34 +403,37 @@ export function SubscriptionHistoryPanels({
         ) : (
           <View accessible accessibilityRole="image" accessibilityLabel={categoryComparisonSummary(bars)} style={{ gap: mobileTheme.spacing[2] }}>
             <ChartSafeBoundary title="Category chart unavailable">
-              <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-                <BarChart
-                  data={bars.map((bar) => ({
-                    value: bar.times,
-                    label: bar.label,
-                    frontColor: palette.link,
-                    onPress: () => setSelectedBar(`${bar.label}: ${formatSubscriptionMultiple(bar.times)}`),
-                  }))}
-                  width={frame}
-                  height={168}
-                  barWidth={frame < 360 ? 18 : 28}
-                  spacing={frame < 360 ? 10 : 16}
-                  labelsExtraHeight={frame < 360 ? 36 : 16}
-                  rotateLabel={frame < 360}
-                  isAnimated={false}
-                  maxValue={maxValue}
-                  noOfSections={4}
-                  showFractionalValues
-                  roundToDigits={2}
-                  yAxisColor={palette.border}
-                  xAxisColor={palette.border}
-                  rulesColor={palette.border}
-                  yAxisTextStyle={{ color: palette.muted, fontSize: 11 }}
-                  xAxisLabelTextStyle={{ color: palette.muted, fontSize: 11 }}
-                  yAxisLabelWidth={40}
-                  backgroundColor={palette.surface}
-                />
-              </View>
+              <DeferredNativeChart height={168} label="Preparing category chart" staggerMs={80}>
+                <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={{ height: 168 }}>
+                  <BarChart
+                    data={bars.map((bar) => ({
+                      value: bar.times,
+                      label: bar.label,
+                      frontColor: palette.link,
+                      onPress: () => setSelectedBar(`${bar.label}: ${formatSubscriptionMultiple(bar.times)}`),
+                    }))}
+                    width={frame}
+                    height={168}
+                    barWidth={frame < 360 ? 18 : 28}
+                    spacing={frame < 360 ? 10 : 16}
+                    labelsExtraHeight={frame < 360 ? 36 : 16}
+                    rotateLabel={frame < 360}
+                    isAnimated={false}
+                    maxValue={maxValue}
+                    noOfSections={4}
+                    showFractionalValues
+                    roundToDigits={2}
+                    yAxisColor={palette.border}
+                    xAxisColor={palette.border}
+                    rulesColor={palette.border}
+                    yAxisTextStyle={{ color: palette.muted, fontSize: 11 }}
+                    xAxisLabelTextStyle={{ color: palette.muted, fontSize: 11 }}
+                    yAxisLabelWidth={40}
+                    backgroundColor={palette.surface}
+                    disableScroll
+                  />
+                </View>
+              </DeferredNativeChart>
             </ChartSafeBoundary>
             {selectedBar ? (
               <AppText size="sm" accessibilityLiveRegion="polite">

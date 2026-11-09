@@ -16,12 +16,12 @@ import {
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
-test("primary navigation is Mainboard, SME, Calendar, Alerts, and Settings", () => {
-  assert.deepEqual(primaryTabTitles(), ["Mainboard", "SME", "Calendar", "Alerts", "Settings"]);
+test("primary navigation is Mainboard, SME, Calendar, News, and Settings", () => {
+  assert.deepEqual(primaryTabTitles(), ["Mainboard", "SME", "Calendar", "News", "Settings"]);
   assert.equal(primaryTabs[0]?.route, "index");
   assert.equal(primaryTabs[1]?.route, "sme");
   assert.equal(primaryTabs[2]?.route, "calendar");
-  assert.equal(primaryTabs[3]?.route, "notifications");
+  assert.equal(primaryTabs[3]?.route, "news");
   assert.equal(primaryTabs[4]?.route, "settings");
   assert.equal(primaryTabTitles().includes("GMP"), false);
   assert.equal(primaryTabTitles().includes("Subscription"), false);

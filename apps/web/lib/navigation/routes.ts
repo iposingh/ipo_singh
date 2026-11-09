@@ -37,6 +37,12 @@ export const primaryNav = [
     shortLabel: "Allotment",
     description: "Registrar allotment links",
   },
+  {
+    href: "/news",
+    label: "News",
+    shortLabel: "News",
+    description: "IPO Singh news and updates",
+  },
 ] as const satisfies readonly SiteRoute[];
 
 export const bottomNav = primaryNav;
@@ -64,7 +70,6 @@ export const accountNav = [
 ] as const satisfies readonly SiteRoute[];
 
 export const footerNav = [
-  { href: "/blog", label: "Blog", shortLabel: "Blog", description: "IPO Insights educational articles" },
   { href: "/about", label: "About", shortLabel: "About", description: "About IPO Singh" },
   { href: "/contact", label: "Contact", shortLabel: "Contact", description: "Contact IPO Singh" },
   { href: "/privacy", label: "Privacy", shortLabel: "Privacy", description: "Privacy" },

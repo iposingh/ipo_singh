@@ -14,7 +14,7 @@ export const articleOfflineNote = "This device is offline. Showing the last save
 export const articleRefreshNote = "Articles could not be refreshed. Showing the last saved articles — not a live update.";
 
 export type ArticleListLoad =
-  | { status: "ready"; items: PublicArticleSummary[]; disclaimer: string; notice: string | null }
+  | { status: "ready"; items: PublicArticleSummary[]; disclaimer: string; notice: string | null; nextCursor: string | null }
   | { status: "unavailable"; message: string; notice: string | null };
 
 export type ArticleDetailLoad =
@@ -24,8 +24,8 @@ export type ArticleDetailLoad =
 const articleListFlights = new Map<string, Promise<ArticleListLoad>>();
 const articleDetailFlights = new Map<string, Promise<ArticleDetailLoad>>();
 
-export function articleListCacheKey(origin: string, category: ContentCategoryFilter, q: string): string {
-  return `ipo-singh.articles.${encodeURIComponent(origin)}.${category}.${encodeURIComponent(q)}`;
+export function articleListCacheKey(origin: string, category: ContentCategoryFilter, q: string, cursor: string): string {
+  return `ipo-singh.articles.${encodeURIComponent(origin)}.${category}.${encodeURIComponent(q)}.${encodeURIComponent(cursor)}`;
 }
 
 export function articleDetailCacheKey(origin: string, slug: string): string {
@@ -40,14 +40,17 @@ export async function loadArticleList(input: {
   now: Date;
   category?: ContentCategoryFilter;
   q?: string;
+  cursor?: string;
+  limit?: number;
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
 }): Promise<ArticleListLoad> {
   const category = input.category ?? "all";
   const q = input.q?.trim() ?? "";
-  const key = articleListCacheKey(input.origin, category, q);
-  if (input.force || input.offline) return fetchArticleList(input, key, category, q);
-  return shareFlight(articleListFlights, key, () => fetchArticleList(input, key, category, q));
+  const cursor = input.cursor?.trim() ?? "";
+  const key = articleListCacheKey(input.origin, category, q, cursor);
+  if (input.force || input.offline || cursor) return fetchArticleList(input, key, category, q, cursor);
+  return shareFlight(articleListFlights, key, () => fetchArticleList(input, key, category, q, cursor));
 }
 
 async function fetchArticleList(
@@ -57,35 +60,66 @@ async function fetchArticleList(
     force?: boolean;
     cache: JsonCache;
     now: Date;
+    limit?: number;
     fetchImpl?: typeof fetch;
     signal?: AbortSignal;
   },
   key: string,
   category: ContentCategoryFilter,
   q: string,
+  cursor: string,
 ): Promise<ArticleListLoad> {
   const cached = await readCached(input.cache, key, publicArticleListSchema, input.now, true, cachePolicies.articles);
   if (input.offline) {
     if (cached.hit === "miss") return { status: "unavailable", message: "No saved articles are available offline.", notice: null };
-    return { status: "ready", items: cached.value.items, disclaimer: cached.value.disclaimer, notice: articleOfflineNote };
+    return {
+      status: "ready",
+      items: cached.value.items,
+      disclaimer: cached.value.disclaimer,
+      notice: articleOfflineNote,
+      nextCursor: cached.value.nextCursor ?? null,
+    };
   }
-  if (!input.force && cached.hit === "fresh") {
-    return { status: "ready", items: cached.value.items, disclaimer: cached.value.disclaimer, notice: null };
+  if (!input.force && !cursor && cached.hit === "fresh") {
+    return {
+      status: "ready",
+      items: cached.value.items,
+      disclaimer: cached.value.disclaimer,
+      notice: null,
+      nextCursor: cached.value.nextCursor ?? null,
+    };
   }
   try {
     const response = await requestJson({
       origin: input.origin,
-      path: articlesPath({ category, q: q || undefined }),
+      path: articlesPath({
+        category,
+        q: q || undefined,
+        limit: input.limit ?? 20,
+        cursor: cursor || undefined,
+      }),
       schema: publicArticleListSchema,
       fetchImpl: input.fetchImpl,
       signal: input.signal,
     });
-    await writeCached(input.cache, key, response, input.now);
-    return { status: "ready", items: response.items, disclaimer: response.disclaimer, notice: null };
+    if (!cursor) await writeCached(input.cache, key, response, input.now);
+    return {
+      status: "ready",
+      items: response.items,
+      disclaimer: response.disclaimer,
+      notice: null,
+      nextCursor: response.nextCursor ?? null,
+    };
   } catch (error) {
     if (error instanceof MobileApiError && error.kind === "cancelled") throw error;
     if (cached.hit !== "miss") {
-      return { status: "ready", items: cached.value.items, disclaimer: cached.value.disclaimer, notice: articleRefreshNote };
+      return {
+        status: "ready",
+        items: cached.value.items,
+        disclaimer: cached.value.disclaimer,
+        notice: articleRefreshNote,
+        nextCursor: cached.value.nextCursor ?? null,
+      };
     }
     return { status: "unavailable", message: "Articles could not be loaded.", notice: null };
   }

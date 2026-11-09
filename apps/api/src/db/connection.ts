@@ -8,6 +8,7 @@ import { createMongoAdminAuditStore } from "../accounts/audit-mongo-store.ts";
 import { createMongoAccountStore } from "../accounts/mongo-store.ts";
 import { createMongoNotificationStore } from "../notifications/mongo-store.ts";
 import { createMongoPushTokenStore } from "../notifications/push-mongo-store.ts";
+import { createMongoArticleStore } from "../content/mongo-store.ts";
 import { createMongoPromotionStore } from "../promotions/mongo-store.ts";
 import { createMongoWatchlistStore } from "../watchlist/mongo-store.ts";
 import { createMongoStore } from "./mongo-store.ts";
@@ -62,6 +63,7 @@ export async function connectDatabase(config: AppConfig, logger: Logger): Promis
     notifications: createMongoNotificationStore(),
     pushTokens: createMongoPushTokenStore(),
     promotions: createMongoPromotionStore(),
+    articles: createMongoArticleStore(),
     async check() {
       if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) return "unavailable";
       try {

@@ -39,7 +39,7 @@ export const previewRoutes = [
   "/news/[slug]",
 ] as const;
 
-export const previewPrimaryTabs = ["Mainboard", "SME", "Calendar", "Alerts", "Settings"] as const;
+export const previewPrimaryTabs = ["Mainboard", "SME", "Calendar", "News", "Settings"] as const;
 
 export type PreviewEnvironmentGuide = {
   appEnv: "development" | "preview" | "production";

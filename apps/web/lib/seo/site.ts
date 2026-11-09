@@ -47,7 +47,7 @@ export const indexablePaths = [
   { path: "/ipos/listed", label: "Listed IPOs" },
   { path: "/compare", label: "Compare IPOs" },
   { path: "/allotment", label: "Allotment" },
-  { path: "/blog", label: "IPO Insights Blog" },
+  { path: "/news", label: "News" },
   { path: "/about", label: "About" },
   { path: "/contact", label: "Contact" },
   { path: "/privacy", label: "Privacy" },

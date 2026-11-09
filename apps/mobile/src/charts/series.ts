@@ -119,7 +119,7 @@ export function canDrawLineChart(count: number): boolean {
  * Soft cap for native line rendering. Tables still list every stored reading.
  * Very long polylines have overflowed Android SVG path buffers on release builds.
  */
-export const chartRenderPointLimit = 120;
+export const chartRenderPointLimit = 64;
 
 /**
  * Gifted-charts data points for IPO history. Omits custom `x` so layout uses index spacing.

@@ -1,10 +1,13 @@
 import { registrarPortalForName } from "./registrar-directory.ts";
 
 /**
- * Official allotment hosts for KFin Technologies, MUFG Intime India, and Bigshare Services.
+ * Official allotment hosts for supported registrars.
  * Prefer a vendor `status_page` when that exact URL is http(s), has no credentials, and its host and path match.
  * When the provider omits a valid status page, a verified general portal from the registrar directory may be used
  * only if the registrar identity matches uniquely. IPO-specific URLs are never guessed.
+ *
+ * Automated verification adapters exist only for KFin, MUFG Intime, and Bigshare.
+ * Cameo and Maashitla are allowlisted for verified Check Allotment links and manual confirmation only.
  */
 
 type HttpUrl = {
@@ -38,6 +41,21 @@ const registrars: readonly { accept(url: HttpUrl): boolean }[] = [
       if ((host === "www.bigshareonline.com" || host === "bigshareonline.com") && path === "/ipo_allotment_status.aspx") return true;
       // Alternate registrar-controlled allotment landing page named in product requirements.
       return (host === "www.bigshareonline.com" || host === "bigshareonline.com") && path === "/ipo_allotment.html";
+    },
+  },
+  {
+    accept(url) {
+      const host = url.hostname.toLowerCase();
+      return host === "ipo.cameoindia.com" || host === "rights.cameoindia.com" || host === "cameoindia.com" || host === "www.cameoindia.com";
+    },
+  },
+  {
+    accept(url) {
+      const host = url.hostname.toLowerCase();
+      const path = url.pathname.toLowerCase();
+      if (host === "online.maashitla.com") return true;
+      if (host !== "maashitla.com" && host !== "www.maashitla.com") return false;
+      return path === "/" || path.startsWith("/allotment-status");
     },
   },
 ];

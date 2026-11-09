@@ -52,7 +52,7 @@ test("page padding follows the website breakpoints and the content column stays 
 });
 
 test("primary navigation is five tabs and does not add GMP or Subscription", () => {
-  assert.deepEqual(primaryTabTitles(), ["Mainboard", "SME", "Calendar", "Alerts", "Settings"]);
+  assert.deepEqual(primaryTabTitles(), ["Mainboard", "SME", "Calendar", "News", "Settings"]);
   assert.equal(primaryTabs[0]?.accessibilityLabel, "Mainboard IPOs");
   assert.equal(primaryTabs[1]?.route, "sme");
   assert.equal(primaryTabs[2]?.route, "calendar");

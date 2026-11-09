@@ -11,7 +11,7 @@ type IconName = ComponentProps<typeof Ionicons>["name"];
 const icons: Record<PrimaryTab["icon"], { active: IconName; inactive: IconName }> = {
   list: { active: "list", inactive: "list-outline" },
   calendar: { active: "calendar", inactive: "calendar-outline" },
-  notifications: { active: "notifications", inactive: "notifications-outline" },
+  newspaper: { active: "newspaper", inactive: "newspaper-outline" },
   settings: { active: "settings", inactive: "settings-outline" },
 };
 
@@ -59,6 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen name="ipos" options={{ href: null, title: "Search IPOs" }} />
       <Tabs.Screen name="watchlist" options={{ href: null, title: "Watchlist" }} />
       <Tabs.Screen name="account" options={{ href: null, title: "Account" }} />
+      <Tabs.Screen name="notifications" options={{ href: null, title: "Alerts" }} />
     </Tabs>
   );
 }

@@ -9,7 +9,7 @@ test("automated verification stays unconfirmed without a permitted source", () =
   assert.match(record.note, /CAPTCHA|permitted/i);
 });
 
-test("administrator confirmation requires an evidence note", () => {
+test("administrator confirmation auto-records audit evidence without a free-text note", () => {
   assert.equal(
     "error" in
       adminConfirmAllotment({
@@ -21,14 +21,16 @@ test("administrator confirmation requires an evidence note", () => {
     true,
   );
   const confirmed = adminConfirmAllotment({
-    ipoId: "eaaa-india-alternatives-ipo",
+    ipoId: "vedant-poly-fabs-ipo",
     now: new Date("2026-10-29T05:30:00.000Z"),
     auditor: "ops-lead",
-    evidenceNote: "Basis of allotment PDF published on the registrar portal for this IPO.",
+    sourceUrl: "https://ipo.cameoindia.com/",
   });
   assert.equal("error" in confirmed, false);
   if (!("error" in confirmed)) {
     assert.equal(confirmed.allotmentConfirmed, true);
     assert.equal(confirmed.verificationStatus, "confirmed");
+    assert.match(confirmed.verificationEvidence ?? "", /manual_admin/);
+    assert.match(confirmed.verificationEvidence ?? "", /cameoindia/);
   }
 });

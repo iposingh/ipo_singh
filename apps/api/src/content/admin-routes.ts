@@ -5,18 +5,19 @@ import {
   type AccountRole,
   type AdminAuditAction,
 } from "@ipo-singh/contracts";
-import { Router, type NextFunction, type Request, type Response } from "express";
+import express, { Router, type NextFunction, type Request, type Response } from "express";
 import type { AdminAuditStore } from "../accounts/audit.ts";
 import { requireRole } from "../accounts/middleware.ts";
 import { createAccountId } from "../accounts/tokens.ts";
 import type { DatabaseHandle } from "../db/handle.ts";
 import { HttpError } from "../shared/errors.ts";
 import type { Logger } from "../shared/logger.ts";
+import { articleImageLimit, inspectArticleImage } from "./images.ts";
 import { createMemoryArticleStore } from "./memory-store.ts";
 import type { ArticleRecord, ArticleStore } from "./records.ts";
 import { sanitizeArticleMarkdown, sanitizeArticlePlain, sanitizeCitationUrl } from "./sanitize.ts";
 
-const administrators = ["admin", "super-admin"] as const satisfies readonly AccountRole[];
+const administrators = ["super-admin"] as const satisfies readonly AccountRole[];
 const idPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const fallbackStore = createMemoryArticleStore();
 
@@ -28,6 +29,10 @@ export type ArticleAdminDeps = {
 
 function resolveStore(readDatabase: () => DatabaseHandle): ArticleStore {
   return readDatabase().articles ?? fallbackStore;
+}
+
+function coverPath(slug: string): string {
+  return `/api/v1/articles/${slug}/cover`;
 }
 
 function toAdmin(article: ArticleRecord) {
@@ -45,6 +50,7 @@ function toAdmin(article: ArticleRecord) {
     citations: article.citations,
     evergreen: article.evergreen,
     cover: article.cover,
+    seoDescription: article.seoDescription ?? null,
     publishedAt: article.publishedAt?.toISOString() ?? null,
     createdAt: article.createdAt.toISOString(),
     updatedAt: article.updatedAt.toISOString(),
@@ -93,12 +99,20 @@ function protect(deps: ArticleAdminDeps) {
   };
 }
 
+function parseWrite(body: unknown) {
+  const parsed = articleWriteSchema.safeParse(body);
+  if (!parsed.success) throw new HttpError(400, "validation_error", "That article could not be saved.");
+  return parsed.data;
+}
+
 export function createArticleAdminRouter(deps: ArticleAdminDeps): Router {
   const router = Router();
-  // Protect per route so unknown /api/v1/admin/* paths still 404 (not 403).
   const gate = protect(deps);
   router.get("/articles", gate, (req, res, next) => {
     void list(req, res, next, deps);
+  });
+  router.get("/articles/:id", gate, (req, res, next) => {
+    void readOne(req, res, next, deps);
   });
   router.post("/articles", gate, (req, res, next) => {
     void create(req, res, next, deps);
@@ -109,8 +123,31 @@ export function createArticleAdminRouter(deps: ArticleAdminDeps): Router {
   router.post("/articles/:id/publish", gate, (req, res, next) => {
     void setStatus(req, res, next, deps, "published");
   });
+  router.post("/articles/:id/unpublish", gate, (req, res, next) => {
+    void setStatus(req, res, next, deps, "draft");
+  });
   router.post("/articles/:id/archive", gate, (req, res, next) => {
     void setStatus(req, res, next, deps, "archived");
+  });
+  router.delete("/articles/:id", gate, (req, res, next) => {
+    void remove(req, res, next, deps);
+  });
+  router.post(
+    "/articles/:id/cover",
+    express.raw({
+      limit: articleImageLimit,
+      type: (req) => {
+        const type = String(req.headers["content-type"] ?? "").split(";")[0]?.trim().toLowerCase();
+        return type === "image/png" || type === "image/jpeg" || type === "image/webp";
+      },
+    }),
+    gate,
+    (req, res, next) => {
+      void uploadCover(req, res, next, deps);
+    },
+  );
+  router.delete("/articles/:id/cover", gate, (req, res, next) => {
+    void removeCover(req, res, next, deps);
   });
   return router;
 }
@@ -124,14 +161,25 @@ async function list(_req: Request, res: Response, next: NextFunction, deps: Arti
   }
 }
 
+async function readOne(req: Request, res: Response, next: NextFunction, deps: ArticleAdminDeps): Promise<void> {
+  try {
+    const id = req.params.id;
+    if (typeof id !== "string" || !idPattern.test(id)) throw new HttpError(404, "not_found", "That article was not found.");
+    const article = await resolveStore(deps.readDatabase).find(id);
+    if (!article) throw new HttpError(404, "not_found", "That article was not found.");
+    res.json(toAdmin(article));
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function create(req: Request, res: Response, next: NextFunction, deps: ArticleAdminDeps): Promise<void> {
   try {
     if (req.auth?.kind !== "user") throw new HttpError(401, "unauthenticated", "Sign in to continue.");
-    const parsed = articleWriteSchema.safeParse(req.body);
-    if (!parsed.success) throw new HttpError(400, "validation_error", "That article could not be saved.");
+    const parsed = parseWrite(req.body);
     const store = resolveStore(deps.readDatabase);
     const now = new Date();
-    const baseSlug = slugify(parsed.data.title) || `article-${now.getTime()}`;
+    const baseSlug = slugify(parsed.title) || `article-${now.getTime()}`;
     let slug = baseSlug;
     let suffix = 2;
     while (await store.findBySlug(slug)) {
@@ -140,7 +188,7 @@ async function create(req: Request, res: Response, next: NextFunction, deps: Art
     }
     const id = slug;
     if (!idPattern.test(id)) throw new HttpError(400, "validation_error", "That article title could not form a slug.");
-    const citations = parsed.data.citations.flatMap((item) => {
+    const citations = parsed.citations.flatMap((item) => {
       const url = sanitizeCitationUrl(item.url);
       if (!url) return [];
       return [{ label: sanitizeArticlePlain(item.label), url }];
@@ -148,18 +196,22 @@ async function create(req: Request, res: Response, next: NextFunction, deps: Art
     const nextRecord: ArticleRecord = {
       id,
       slug,
-      title: sanitizeArticlePlain(parsed.data.title),
-      summary: sanitizeArticlePlain(parsed.data.summary),
-      category: parsed.data.category,
+      title: sanitizeArticlePlain(parsed.title),
+      summary: sanitizeArticlePlain(parsed.summary),
+      category: parsed.category,
       status: "draft",
-      authorName: sanitizeArticlePlain(parsed.data.authorName),
-      sourceName: sanitizeArticlePlain(parsed.data.sourceName),
-      bodyMarkdown: sanitizeArticleMarkdown(parsed.data.bodyMarkdown),
-      relatedIpoSlugs: parsed.data.relatedIpoSlugs,
+      authorName: sanitizeArticlePlain(parsed.authorName),
+      sourceName: sanitizeArticlePlain(parsed.sourceName),
+      bodyMarkdown: sanitizeArticleMarkdown(parsed.bodyMarkdown),
+      relatedIpoSlugs: parsed.relatedIpoSlugs,
       citations,
-      evergreen: parsed.data.evergreen,
-      cover: parsed.data.cover,
-      publishedAt: parsed.data.publishedAt ? new Date(parsed.data.publishedAt) : null,
+      evergreen: parsed.evergreen,
+      cover: parsed.cover,
+      coverImage: null,
+      seoDescription: parsed.seoDescription ? sanitizeArticlePlain(parsed.seoDescription) : null,
+      createdBy: req.auth.userId,
+      updatedBy: req.auth.userId,
+      publishedAt: parsed.publishedAt ? new Date(parsed.publishedAt) : null,
       createdAt: now,
       updatedAt: now,
     };
@@ -176,29 +228,30 @@ async function update(req: Request, res: Response, next: NextFunction, deps: Art
     if (req.auth?.kind !== "user") throw new HttpError(401, "unauthenticated", "Sign in to continue.");
     const id = req.params.id;
     if (typeof id !== "string" || !idPattern.test(id)) throw new HttpError(404, "not_found", "That article was not found.");
-    const parsed = articleWriteSchema.safeParse(req.body);
-    if (!parsed.success) throw new HttpError(400, "validation_error", "That article could not be saved.");
+    const parsed = parseWrite(req.body);
     const store = resolveStore(deps.readDatabase);
     const existing = await store.find(id);
     if (!existing) throw new HttpError(404, "not_found", "That article was not found.");
-    const citations = parsed.data.citations.flatMap((item) => {
+    const citations = parsed.citations.flatMap((item) => {
       const url = sanitizeCitationUrl(item.url);
       if (!url) return [];
       return [{ label: sanitizeArticlePlain(item.label), url }];
     });
     const nextRecord: ArticleRecord = {
       ...existing,
-      title: sanitizeArticlePlain(parsed.data.title),
-      summary: sanitizeArticlePlain(parsed.data.summary),
-      category: parsed.data.category,
-      authorName: sanitizeArticlePlain(parsed.data.authorName),
-      sourceName: sanitizeArticlePlain(parsed.data.sourceName),
-      bodyMarkdown: sanitizeArticleMarkdown(parsed.data.bodyMarkdown),
-      relatedIpoSlugs: parsed.data.relatedIpoSlugs,
+      title: sanitizeArticlePlain(parsed.title),
+      summary: sanitizeArticlePlain(parsed.summary),
+      category: parsed.category,
+      authorName: sanitizeArticlePlain(parsed.authorName),
+      sourceName: sanitizeArticlePlain(parsed.sourceName),
+      bodyMarkdown: sanitizeArticleMarkdown(parsed.bodyMarkdown),
+      relatedIpoSlugs: parsed.relatedIpoSlugs,
       citations,
-      evergreen: parsed.data.evergreen,
-      cover: parsed.data.cover,
-      publishedAt: parsed.data.publishedAt ? new Date(parsed.data.publishedAt) : existing.publishedAt,
+      evergreen: parsed.evergreen,
+      cover: parsed.cover ?? existing.cover,
+      seoDescription: parsed.seoDescription ? sanitizeArticlePlain(parsed.seoDescription) : null,
+      updatedBy: req.auth.userId,
+      publishedAt: parsed.publishedAt ? new Date(parsed.publishedAt) : existing.publishedAt,
       updatedAt: new Date(),
     };
     await store.save(nextRecord);
@@ -214,7 +267,7 @@ async function setStatus(
   res: Response,
   next: NextFunction,
   deps: ArticleAdminDeps,
-  status: "published" | "archived",
+  status: "published" | "draft" | "archived",
 ): Promise<void> {
   try {
     if (req.auth?.kind !== "user") throw new HttpError(401, "unauthenticated", "Sign in to continue.");
@@ -228,7 +281,85 @@ async function setStatus(
       ...existing,
       status,
       publishedAt: status === "published" ? existing.publishedAt ?? now : existing.publishedAt,
+      updatedBy: req.auth.userId,
       updatedAt: now,
+    };
+    await store.save(nextRecord);
+    await recordAudit(deps, req.auth.userId, "succeeded");
+    res.json(toAdmin(nextRecord));
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function remove(req: Request, res: Response, next: NextFunction, deps: ArticleAdminDeps): Promise<void> {
+  try {
+    if (req.auth?.kind !== "user") throw new HttpError(401, "unauthenticated", "Sign in to continue.");
+    const id = req.params.id;
+    if (typeof id !== "string" || !idPattern.test(id)) throw new HttpError(404, "not_found", "That article was not found.");
+    const store = resolveStore(deps.readDatabase);
+    const existing = await store.find(id);
+    if (!existing) throw new HttpError(404, "not_found", "That article was not found.");
+    if (!store.remove) throw new HttpError(503, "unavailable", "Article deletion is unavailable.");
+    await store.remove(id);
+    await recordAudit(deps, req.auth.userId, "succeeded");
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function uploadCover(req: Request, res: Response, next: NextFunction, deps: ArticleAdminDeps): Promise<void> {
+  try {
+    if (req.auth?.kind !== "user") throw new HttpError(401, "unauthenticated", "Sign in to continue.");
+    const id = req.params.id;
+    if (typeof id !== "string" || !idPattern.test(id)) throw new HttpError(404, "not_found", "That article was not found.");
+    const store = resolveStore(deps.readDatabase);
+    const existing = await store.find(id);
+    if (!existing) throw new HttpError(404, "not_found", "That article was not found.");
+    const data = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const contentType = String(req.headers["content-type"] ?? "");
+    const inspected = inspectArticleImage(contentType, data);
+    if (!inspected) throw new HttpError(400, "validation_error", "That image could not be accepted.");
+    const altRaw = typeof req.query.alt === "string" ? req.query.alt.trim() : existing.title;
+    const alt = sanitizeArticlePlain(altRaw).slice(0, 120) || existing.title.slice(0, 120);
+    const now = new Date();
+    const nextRecord: ArticleRecord = {
+      ...existing,
+      cover: { url: coverPath(existing.slug), alt },
+      coverImage: {
+        contentType: inspected.contentType,
+        width: inspected.width,
+        height: inspected.height,
+        byteLength: data.length,
+        data,
+        updatedAt: now,
+      },
+      updatedBy: req.auth.userId,
+      updatedAt: now,
+    };
+    await store.save(nextRecord);
+    await recordAudit(deps, req.auth.userId, "succeeded");
+    res.json(toAdmin(nextRecord));
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function removeCover(req: Request, res: Response, next: NextFunction, deps: ArticleAdminDeps): Promise<void> {
+  try {
+    if (req.auth?.kind !== "user") throw new HttpError(401, "unauthenticated", "Sign in to continue.");
+    const id = req.params.id;
+    if (typeof id !== "string" || !idPattern.test(id)) throw new HttpError(404, "not_found", "That article was not found.");
+    const store = resolveStore(deps.readDatabase);
+    const existing = await store.find(id);
+    if (!existing) throw new HttpError(404, "not_found", "That article was not found.");
+    const nextRecord: ArticleRecord = {
+      ...existing,
+      cover: null,
+      coverImage: null,
+      updatedBy: req.auth.userId,
+      updatedAt: new Date(),
     };
     await store.save(nextRecord);
     await recordAudit(deps, req.auth.userId, "succeeded");

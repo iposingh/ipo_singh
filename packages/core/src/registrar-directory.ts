@@ -33,6 +33,20 @@ const directory: readonly RegistrarDirectoryEntry[] = [
     portalUrl: "https://ipo.bigshareonline.com/ipo_status.html",
     verificationAdapter: "bigshare",
   },
+  {
+    id: "cameo",
+    names: ["cameo", "cameo corporate", "cameo corporate services", "cameo india"],
+    portalUrl: "https://ipo.cameoindia.com/",
+    /** CAPTCHA / investor-identifier portal — manual admin confirmation only. */
+    verificationAdapter: null,
+  },
+  {
+    id: "maashitla",
+    names: ["maashitla", "maashitla securities", "mashitla"],
+    portalUrl: "https://maashitla.com/allotment-status/public-issues/",
+    /** CAPTCHA / investor-identifier portal — manual admin confirmation only. */
+    verificationAdapter: null,
+  },
 ];
 
 export function normalizeRegistrarLabel(value: string): string {
